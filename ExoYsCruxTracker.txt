@@ -1,0 +1,14 @@
+## Title: |c40FF00ExoY|rs Crux Tracker
+## Author: @|c40FF00ExoY|r94 (PC/EU)
+## Description: Visual Indicator for the amount of crux you have.
+## APIVersion: 101038
+## Version: 0.1
+## SavedVariables: ECTSV
+
+## DependsOn: LibExoYsUtilities
+## DependsOn: LibAddonMenu-2.0
+
+languages/en.lua
+languages/$(language).lua
+
+ExoYsCruxTracker.lua
