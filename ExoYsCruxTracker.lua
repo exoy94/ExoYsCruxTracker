@@ -153,19 +153,21 @@ local function InitializeGraphic()
   HUD_UI_SCENE:AddFragment( frag )
   HUD_SCENE:AddFragment( frag )
 
-  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
+  --[[local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
   ctrl:ClearAnchors()
   ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
   ctrl:SetDimensions( 25,25 )
-  ctrl:SetScale(2)
+  ctrl:SetScale(2)]]
 
   --[[
   local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
   back:ClearAnchors()
   back:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  back:SetDimensions( 25, 25)
-  back:SetCente.rColor(0,0,0,1)
+  back:SetDimensions( 100, 25)
+  back:SetCenterTexture("esoui/art/champion/actionbar/champion_constellation_bar.dds")
+  back:SetEdgeColor(0,0,0,0)
   ]]
+
 
   --[[
   local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
@@ -182,7 +184,7 @@ local function InitializeGraphic()
 
   local function GetIndicator(i) 
 
-    local ind = WM:CreateControl(name.."Indicator"..tostring(i), ctrl, CT_CONTROL)
+    local ind = WM:CreateControl(name.."Indicator"..tostring(i), win, CT_CONTROL)
 
     local back  = WM:CreateControl(name.."Back"..tostring(i), ind, CT_TEXTURE )
     back:ClearAnchors()
