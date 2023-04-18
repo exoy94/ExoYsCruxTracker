@@ -1,7 +1,7 @@
 --CruxTracker = CruxTracker or {}
 
 --local ECT = CruxTracker
---local Lib = LibExoYsUtilities
+local Lib = LibExoYsUtilities
 
 --[[ --------------- ]]
 --[[ -- Variables -- ]]
@@ -13,14 +13,14 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 
-local Gui
+local Gui = {}
 
 --[[ -------------- ]]
 --[[ -- Graphics -- ]]
 --[[ -------------- ]]
 
-local function InitializeGui() 
-  local name = idECT
+local function InitializeNumericTracker() 
+  local name = idECT.."NumericTracker"
 
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
@@ -73,6 +73,7 @@ local function InitializeGui()
         break 
       end 
     end
+    d("test")
     label:SetText(tostring(crux))
     --d(crux)
   end 
@@ -123,8 +124,8 @@ local function Initialize()
 
 
   -- create menu 
-  -- create gui 
-  InitializeGui() 
+
+  Gui.NumericTracker = InitializeNumericTracker() 
 
   -- TODO publish version 6 of lib!!! 
   -- Lib.RegisterCombatStart( OnCombatStart )
