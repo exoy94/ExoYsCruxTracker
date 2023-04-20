@@ -6,6 +6,5 @@
 ## SavedVariables: ECTSV
 
 ## DependsOn: LibAddonMenu-2.0
-## DependsOn: LibExoYsUtilities
 
 ExoYsCruxTracker.lua
