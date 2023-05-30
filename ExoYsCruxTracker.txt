@@ -3,8 +3,9 @@
 ## Description: Visual Indicator for the amount of crux you have.
 ## APIVersion: 101038
 ## Version: 0.1.0
-## SavedVariables: ECTSV
+## SavedVariables: ExoYsCruxTrackerSavedVariables
 
 ## DependsOn: LibAddonMenu-2.0
+## DependsOn: LibExoYsUtilities
 
 ExoYsCruxTracker.lua

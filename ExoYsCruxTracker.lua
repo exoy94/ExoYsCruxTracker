@@ -12,9 +12,12 @@ local WM = GetWindowManager()
 local SV 
 
 local idECT = "ExoYsCruxTracker"
+local nECT = "|c00FF00ExoY|rs Crux Tracker"
 local vECT = "0.1.0"
 
 local Gui = {}
+
+local Lib = LibExoYsUtilities
 
 local Numeric
 local Graphic
@@ -29,15 +32,14 @@ local function InitializeNumeric()
 
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.counter.x, SV.counter.y)
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.numeric.x, SV.numeric.y)
   win:SetMouseEnabled(true) 
   win:SetMovable(true)
   win:SetHidden(true)
   win:SetClampedToScreen(true) 
-  win:SetDimensions( 50,50 )
   win:SetHandler( "OnMoveStop", function() 
-    SV.counter.x = win:GetLeft() 
-    SV.counter.y = win:GetTop()
+    SV.numeric.x = win:GetLeft() 
+    SV.numeric.y = win:GetTop()
   end)  
 
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
@@ -54,7 +56,7 @@ local function InitializeNumeric()
   local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
   ctrl:ClearAnchors()
   ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
-  ctrl:SetDimensions( 25,25 )
+  ctrl:SetDimensions( 0,0 )
   ctrl:SetScale(2)
 
   --[[
@@ -68,13 +70,13 @@ local function InitializeNumeric()
   local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
   label:ClearAnchors() 
   label:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  label:SetFont( "ZoFontWinH1" )
-  label:SetDimensions( 50,50 )
-  label:SetColor(0,1,0,1)
+  label:SetColor(unpack(SV.numeric.color[1]))
+  label:SetText("0")
+
   label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
   label:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
 
-  return {DefineFragmentScenes = DefineFragmentScenes, label = label}
+  return {DefineFragmentScenes = DefineFragmentScenes, win = win, label = label}
 end
 
 
@@ -84,15 +86,15 @@ local function InitializeGraphic()
 
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.display.x, SV.display.y)
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.graphical.x, SV.graphical.y)
   win:SetMouseEnabled(true) 
   win:SetMovable(true)
   win:SetClampedToScreen(true) 
   win:SetDimensions( 50,50 )
   win:SetHidden(true)
   win:SetHandler( "OnMoveStop", function() 
-    SV.display.x = win:GetLeft() 
-    SV.display.y = win:GetTop()
+    SV.graphical.x = win:GetLeft() 
+    SV.graphical.y = win:GetTop()
   end)
 
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
@@ -180,11 +182,16 @@ end
 
 
 local function ApplySettings() 
-  Numeric.DefineFragmentScenes(SV.counter.enabled)
+  Numeric.DefineFragmentScenes(SV.numeric.enabled)
+  local fontList = Lib.GetFontList() 
+  Numeric.label:SetFont( Lib.GetFont({font=fontList[SV.numeric.font], size = SV.numeric.size, outline=2}) ) 
+  local numericHeight = Numeric.label:GetTextHeight() 
+  local numericWidth = Numeric.label:GetTextWidth() 
+  Numeric.win:SetDimensions(2*numericWidth, 2*numericHeight)
 
-  Graphic.DefineFragmentScenes(SV.display.enabled)
-  Graphic.indicator.ApplyDistance(SV.display.distance, SV.display.size)
-  Graphic.indicator.ApplySize(SV.display.size)
+  Graphic.DefineFragmentScenes(SV.graphical.enabled)
+  Graphic.indicator.ApplyDistance(SV.graphical.distance, SV.graphical.size)
+  Graphic.indicator.ApplySize(SV.graphical.size)
 end
 
 
@@ -211,7 +218,7 @@ local function OnUpdate()
   end
   -- numeric
   Numeric.label:SetText(tostring(crux))
-
+  Numeric.label:SetColor(unpack(SV.numeric.color[crux+1]))
   -- graphic
   for i=1,3 do 
     Graphic.indicator[i].Deactivate() 
@@ -241,14 +248,55 @@ local function DefineSetting(setting, name, t, k, param)
   return s
 end
 
+local function NumericAdvancedSettings() 
+  local controls = {} 
+  
+  table.insert(controls, DefineSetting("slider", "Size", SV.numeric, "size", {10,80,5}))
+  table.insert(controls, {
+    type = "dropdown",
+    name = "Font",  
+    choices = Lib.GetFontList(), 
+    getFunc = function() 
+      local fontList = Lib.GetFontList()
+      return fontList[SV.numeric.font] end, 
+    setFunc = function(selection)
+      local fontList = Lib.GetFontList() 
+      for id, font in ipairs(fontList) do 
+        if selection == font then 
+          SV.numeric.font = id
+        end
+      end
+      ApplySettings()
+    end,
+  }) 
+  local numberStr = {"Zero", "One", "Two", "Three"}
+  for i=1,4 do 
+    table.insert(controls, {
+      type = "colorpicker",
+      name = "Color "..numberStr[i],
+      getFunc = function() return unpack(SV.numeric.color[i]) end,	--(alpha is optional)
+      setFunc = function(r,g,b)
+        SV.numeric.color[i] = {r, g, b}
+      end,
+      width = "half",	--or "half" (optional)
+    })
+  end
+
+
+  return { 
+    type = "submenu", 
+    name = "Advanced Settings", 
+    controls = controls,
+  }
+end
 
 local function InitializeMenu() 
   local LAM2 = LibAddonMenu2
 
   local panelData = {
       type="panel", 
-      name=idECT, 
-      displayName=idECT, 
+      name=nECT, 
+      displayName=nECT, 
       author = "@|c00FF00ExoY|r94 (PC/EU)", 
       version = vECT, 
       registerForRefresh = true, 
@@ -256,13 +304,16 @@ local function InitializeMenu()
   local optionsTable = {} 
 
   --TODO add describtions and maybe support for multiple languages? 
- -- table.insert(optionsTable, Lib.FeedbackSubmenu(idLFI, "info3599-LibFloatingIcons.html"))
-  table.insert(optionsTable, {type="header", name="Counter"})
-  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.counter, "enabled"))
+  table.insert(optionsTable, Lib.FeedbackSubmenu(nECT, "info3619-ExoYsCruxTracker.html"))
 
-  table.insert(optionsTable, {type="header", name="Indicator"})
-  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.display, "enabled"))
-  table.insert(optionsTable, DefineSetting("slider", "Size", SV.display, "size", {20, 120, 10}))
+  table.insert(optionsTable, {type="header", name="Numeric Counter"})
+  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.numeric, "enabled"))
+  table.insert(optionsTable, NumericAdvancedSettings() )
+
+
+  table.insert(optionsTable, {type="header", name="Graphical Indicator"})
+  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.graphical, "enabled"))
+  table.insert(optionsTable, DefineSetting("slider", "Size", SV.graphical, "size", {20, 120, 10}))
 
 
 
@@ -277,15 +328,17 @@ end
 
 local function GetDefaults() 
   local defaults = {}
-    defaults.counter = {
+    defaults.numeric = { 
       x = 600, 
       y = 600, 
       center = false,
       locked = false, 
+      font = 2, 
       size = 20, 
       enabled = true,  
+      color = { {0,1,0},{0,1,0},{0,1,0},{0,1,0} }
     }
-    defaults.display = {
+    defaults.graphical = {
       size = 20,
       distance = 2, 
       x = 600, 
@@ -299,7 +352,7 @@ end
 local function Initialize()
   -- x,y, snapToMiddle, locked, showOutsideCombat, 
 
-  SV = ZO_SavedVars:NewCharacterIdSettings("ECTSV", 1, nil, GetDefaults() )
+  SV = ZO_SavedVars:NewAccountWide("ExoYsCruxTrackerSavedVariables", 1, nil, GetDefaults() )
 
   InitializeMenu() 
 
@@ -328,6 +381,3 @@ local function OnAddonLoaded(_, addonName)
   end
 end
 EM:RegisterForEvent(idECT, EVENT_ADD_ON_LOADED, OnAddonLoaded)
-
-
---SLASH_COMMANDS["/ect"] = function() d(SV.display.enabled) end
