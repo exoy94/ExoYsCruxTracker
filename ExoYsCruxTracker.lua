@@ -129,24 +129,22 @@ local function InitializeGraphic()
     icon:ClearAnchors() 
     icon:SetAnchor( CENTER, ind, CENTER, 0, 0 ) 
     icon:SetDesaturation(0.1)
-    icon:SetTexture( "exoyscruxtracker/art/crux.dds")
-
-
+    icon:SetTexture("/art/fx/texture/arcanist_trianglerune_01.dds")
 
     local highlight  = WM:CreateControl(name.."Highlight"..tostring(i), ind, CT_TEXTURE )
     highlight:ClearAnchors()
     highlight:SetAnchor( CENTER, ind, CENTER, 0, 0)
     highlight:SetDesaturation(0.4)
     highlight:SetTexture( "esoui/art/champion/actionbar/champion_bar_world_selection.dds")
-    highlight:SetColor(0,1,0,0.9)
+    highlight:SetColor(0,1,0)
 
     local function Activate()
-      icon:SetAlpha(0.9) 
+      icon:SetColor(0,1,0,1)
       highlight:SetAlpha(0.8)    
     end
 
     local function Deactivate()
-      icon:SetAlpha(0)
+      icon:SetColor(1,1,1,0.2)
       highlight:SetAlpha(0)
     end
 
