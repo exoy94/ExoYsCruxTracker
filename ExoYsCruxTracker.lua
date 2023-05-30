@@ -15,6 +15,8 @@ local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
 local vECT = "0.1.0"
 
+local cruxId = 184220
+
 local Gui = {}
 
 local Lib = LibExoYsUtilities
@@ -192,6 +194,27 @@ local function ApplySettings()
   Graphic.indicator.ApplySize(SV.graphical.size)
 end
 
+--[[ ------------------ ]]
+--[[ -- Crux Handler -- ]]
+--[[ ------------------ ]]
+
+local function SetCrux(crux)
+
+  if true then return end
+    
+  -- numeric
+  Numeric.label:SetText(tostring(crux))
+  Numeric.label:SetColor(unpack(SV.numeric.color[crux+1]))
+
+  -- graphic
+  for i=1,3 do 
+    Graphic.indicator[i].Deactivate() 
+  end
+  if crux == 0 then return end
+  for i=1,crux do 
+    Graphic.indicator[i].Activate() 
+  end
+end
 
 --[[ ------------ ]]
 --[[ -- Events -- ]]
@@ -226,6 +249,15 @@ local function OnUpdate()
     Graphic.indicator[i].Activate() 
   end
 
+end
+
+
+local function OnCruxChange(_, changeType, _, _, _, _, _, stackCount) 
+  if changeType == EFFECT_RESULT_FADED then
+    SetCrux(0)
+    return
+  end
+  SetCrux(3)
 end
 
 --[[ ---------- ]]
@@ -360,12 +392,12 @@ local function Initialize()
   Graphic = InitializeGraphic() 
   ApplySettings() 
 
-  -- old 
-  --Gui.NumericTracker = InitializeNumericTracker() 
-  --Gui.VisualTracker = InitializeVisualTracker() 
-
-
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
+
+  EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, OnCruxChange)
+  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
+  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
+
   -- TODO publish version 6 of lib!!! 
   -- Lib.RegisterCombatStart( OnCombatStart )
   -- Lib.RegisterCombatEnd( OnCombatEnd ) 
