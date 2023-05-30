@@ -232,7 +232,7 @@ end
 --[[ -- Menu -- ]]
 --[[ ---------- ]]
 
-local function DefineSetting(setting, name, t, k, param) 
+local function DefineSetting(setting, name, t, k, param, half) 
   local s = { type=setting, name=name }
   s.getFunc = function() return t[k] end 
   s.setFunc = function(v) 
@@ -243,12 +243,17 @@ local function DefineSetting(setting, name, t, k, param)
     s.min, s.max, s.step = param[1], param[2], param[3] 
     s.decimals = 2
   end
+  if half then 
+    s.width = "half"
+  end
   return s
 end
 
-local function NumericAdvancedSettings() 
-  local controls = {} 
-  
+local function NumericSubmenu() 
+  local controls = {}
+
+  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.numeric, "enabled"))
+  table.insert(controls, {type="divider"})
   table.insert(controls, DefineSetting("slider", "Size", SV.numeric, "size", {10,80,5}))
   table.insert(controls, {
     type = "dropdown",
@@ -267,6 +272,7 @@ local function NumericAdvancedSettings()
       ApplySettings()
     end,
   }) 
+  table.insert(controls, {type="divider"})
   local numberStr = {"Zero", "One", "Two", "Three"}
   for i=1,4 do 
     table.insert(controls, {
@@ -280,10 +286,9 @@ local function NumericAdvancedSettings()
     })
   end
 
-
   return { 
     type = "submenu", 
-    name = "Advanced Settings", 
+    name = "Numeric Indicator", 
     controls = controls,
   }
 end
@@ -304,10 +309,7 @@ local function InitializeMenu()
   --TODO add describtions and maybe support for multiple languages? 
   table.insert(optionsTable, Lib.FeedbackSubmenu(nECT, "info3619-ExoYsCruxTracker.html"))
 
-  table.insert(optionsTable, {type="header", name="Numeric Counter"})
-  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.numeric, "enabled"))
-  table.insert(optionsTable, NumericAdvancedSettings() )
-
+  table.insert(optionsTable, NumericSubmenu() ) 
 
   table.insert(optionsTable, {type="header", name="Graphical Indicator"})
   table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.graphical, "enabled"))
