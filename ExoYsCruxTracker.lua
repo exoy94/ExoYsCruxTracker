@@ -13,7 +13,7 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "0.1.0"
+local vECT = "0.2.0"
 
 local cruxId = 184220
 
@@ -24,6 +24,21 @@ local Lib = LibExoYsUtilities
 local Numeric
 local Graphic
 
+local soundList = {
+  "ABILITY_COMPANION_ULTIMATE_READY",
+  "ABILITY_WEAPON_SWAP_FAIL",
+  "ACTIVE_SKILL_UNMORPHED",
+  "ALCHEMY_CLOSED", 
+  "ALCHEMY_OPENED",
+  "ANTIQUITIES_DIGGING_DIG_POWER_REFUND",
+  "ANTIQUITIES_FANFARE_FRAGMENT_DISCOVERED_FINAL",
+  "BATTLEGROUND_CAPTURE_AREA_CAPTURED_OTHER_TEAM",
+  "BATTLEGROUND_COUNTDOWN_FINISH",
+  "BATTLEGROUND_MURDERBALL_RETURNED",
+  "COUNTDOWN_TICK",
+}
+
+local previousCrux = 0 
 
 --[[ --------------- ]]
 --[[ -- Interface -- ]]
@@ -151,7 +166,7 @@ local function InitializeGraphic()
     end
 
     local controls = {ind = ind, back = back, frame = frame, icon = icon, highlight = highlight}
-    return {controls = controls, Activate = Activate, Deactivate = Deactivate}
+    return {win = win, controls = controls, Activate = Activate, Deactivate = Deactivate}
   end
 
   for i =1,3 do 
@@ -192,28 +207,33 @@ local function ApplySettings()
   Graphic.DefineFragmentScenes(SV.graphical.enabled)
   Graphic.indicator.ApplyDistance(SV.graphical.distance, SV.graphical.size)
   Graphic.indicator.ApplySize(SV.graphical.size)
+
+  Numeric.win:SetMovable(not SV.locked) 
+  Graphic.win:SetMovable(not SV.locked) 
 end
 
 --[[ ------------------ ]]
 --[[ -- Crux Handler -- ]]
 --[[ ------------------ ]]
 
-local function SetCrux(crux)
+local function SetCrux(crux) 
+  previousCrux = crux
+end
 
-  if true then return end
-    
-  -- numeric
-  Numeric.label:SetText(tostring(crux))
-  Numeric.label:SetColor(unpack(SV.numeric.color[crux+1]))
+local function SoundWarning() 
 
-  -- graphic
-  for i=1,3 do 
-    Graphic.indicator[i].Deactivate() 
+  if previousCrux == 3 then 
+    if SV.soundCue.overcast.enabled then 
+      for i=1,(SV.soundCue.overcast.volume-1)*3+1 do 
+        PlaySound(SOUNDS[soundList[SV.soundCue.overcast.sound]])
+      end
+    end
+  elseif SV.soundCue.full.enabled then
+    for i=1,(SV.soundCue.full.volume-1)*3+1 do 
+      PlaySound(SOUNDS[soundList[SV.soundCue.full.sound]])
+    end
   end
-  if crux == 0 then return end
-  for i=1,crux do 
-    Graphic.indicator[i].Activate() 
-  end
+
 end
 
 --[[ ------------ ]]
@@ -257,14 +277,28 @@ local function OnCruxChange(_, changeType, _, _, _, _, _, stackCount)
     SetCrux(0)
     return
   end
-  SetCrux(3)
+  if stackCount == 3 then 
+    SoundWarning() 
+  end
+  SetCrux(stackCount)
+end
+
+
+local function OnPlayerActivated() 
+  local crux = 0 
+  for i=1,GetNumBuffs("player") do
+    local _,_,_,_,stack,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
+    if abilityId == 184220 then 
+      previousCrux = stack
+    end 
+  end
 end
 
 --[[ ---------- ]]
 --[[ -- Menu -- ]]
 --[[ ---------- ]]
 
-local function DefineSetting(setting, name, t, k, param, half) 
+local function DefineSetting(setting, name, t, k, param, half, tt) 
   local s = { type=setting, name=name }
   s.getFunc = function() return t[k] end 
   s.setFunc = function(v) 
@@ -277,6 +311,9 @@ local function DefineSetting(setting, name, t, k, param, half)
   end
   if half then 
     s.width = "half"
+  end
+  if tt then 
+    s.tooltip = tt 
   end
   return s
 end
@@ -325,6 +362,70 @@ local function NumericSubmenu()
   }
 end
 
+
+local function GraphicalSubmenu()
+  local controls = {}
+
+  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.graphical, "enabled"))
+  table.insert(controls, DefineSetting("slider", "Size", SV.graphical, "size", {20, 120, 10}))
+  table.insert(controls, DefineSetting("slider", "Spacing", SV.graphical, "distance", {0, 120, 10}))
+
+  return {
+    type = "submenu", 
+    name = "Graphical Indicator", 
+    controls = controls, 
+  }
+end
+
+
+local function SoundSubmenu() 
+  local controls = {} 
+
+  table.insert(controls, {type="header", name="Full Crux"})
+  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.full, "enabled", nil, nil, "Plays a sound when you reach three crux."))
+  table.insert(controls, {
+    type = "dropdown",
+    name = "Font",  
+    choices = soundList, 
+    getFunc = function() return soundList[SV.soundCue.full.sound] end, 
+    setFunc = function(selection)
+      for id, sound in ipairs(soundList) do 
+        if selection == sound then 
+          SV.soundCue.full.sound = id
+        end
+      end
+      PlaySound(SOUNDS[selection])
+    end,
+  }) 
+  table.insert(controls, DefineSetting("slider", "Volumne", SV.soundCue.full, "volume", {1,30,1}))
+
+  table.insert(controls, {type="header", name="Overcast"})
+  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.overcast, "enabled", nil, nil, "Plays a sound when you already have three crux and cast a crux-generating skill."))
+  table.insert(controls, {
+    type = "dropdown",
+    name = "Font",  
+    choices = soundList, 
+    getFunc = function() return soundList[SV.soundCue.overcast.sound] end, 
+    setFunc = function(selection)
+      for id, sound in ipairs(soundList) do 
+        if selection == sound then 
+          SV.soundCue.overcast.sound = id
+        end
+      end
+      PlaySound(SOUNDS[selection])
+    end,
+  }) 
+  table.insert(controls, DefineSetting("slider", "Volume", SV.soundCue.overcast, "volume", {1,30,1}))
+
+
+  return {
+    type="submenu", 
+    name="Sound Cues", 
+    controls = controls, 
+  }
+end
+
+
 local function InitializeMenu() 
   local LAM2 = LibAddonMenu2
 
@@ -340,14 +441,17 @@ local function InitializeMenu()
 
   --TODO add describtions and maybe support for multiple languages? 
   table.insert(optionsTable, Lib.FeedbackSubmenu(nECT, "info3619-ExoYsCruxTracker.html"))
-
+  table.insert(optionsTable, {
+    type = "checkbox", 
+    name = "Lock Position", 
+    getFunc = function() return SV.locked end,
+    setFunc = function(bool) 
+      SV.locked = bool
+      ApplySettings() 
+    end,})
   table.insert(optionsTable, NumericSubmenu() ) 
-
-  table.insert(optionsTable, {type="header", name="Graphical Indicator"})
-  table.insert(optionsTable, DefineSetting("checkbox", "Enabled", SV.graphical, "enabled"))
-  table.insert(optionsTable, DefineSetting("slider", "Size", SV.graphical, "size", {20, 120, 10}))
-
-
+  table.insert(optionsTable, GraphicalSubmenu() )
+  table.insert(optionsTable, SoundSubmenu() ) 
 
   LAM2:RegisterAddonPanel('ExoYCruxTracker_Menu', panelData)
   LAM2:RegisterOptionControls('ExoYCruxTracker_Menu', optionsTable)
@@ -360,11 +464,11 @@ end
 
 local function GetDefaults() 
   local defaults = {}
+    defaults.locked = false
     defaults.numeric = { 
       x = 600, 
       y = 600, 
       center = false,
-      locked = false, 
       font = 2, 
       size = 20, 
       enabled = true,  
@@ -372,11 +476,23 @@ local function GetDefaults()
     }
     defaults.graphical = {
       size = 20,
-      distance = 2, 
+      distance = 5, 
       x = 600, 
       y = 600, 
       center = false, 
       enabled = true, 
+    }
+    defaults.soundCue= {
+      full = {
+        enabled = true, 
+        volume = 3, 
+        sound = 1, 
+        },
+      overcast = {
+      enabled = true, 
+      volume = 3, 
+      sound = 1, 
+      },
     }
   return defaults 
 end
@@ -398,6 +514,7 @@ local function Initialize()
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
 
+  EM:RegisterForEvent(idECT, EVENT_PLAYER_ACTIVATED, OnPlayerActivated)
   -- TODO publish version 6 of lib!!! 
   -- Lib.RegisterCombatStart( OnCombatStart )
   -- Lib.RegisterCombatEnd( OnCombatEnd ) 
