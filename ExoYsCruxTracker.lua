@@ -40,6 +40,110 @@ local soundList = {
 
 local previousCrux = 0 
 
+local stats = {earlyCast = 0, tardyCast = 0}
+local Display
+
+--[[ ---------------- ]]
+--[[ -- Statistics -- ]] 
+--[[ ---------------- ]]
+
+local function ResetStats() 
+  stats = {earlyCast = 0, tardyCast = 0}
+end
+
+local function InitializeStatistics() 
+  local name = idECT.."Statistics"
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.stats.display.x, SV.stats.display.y)
+  win:SetMouseEnabled(true) 
+  win:SetMovable(true)
+  win:SetHidden(true)
+  win:SetClampedToScreen(true) 
+  win:SetDimensions(100,35) 
+  win:SetHandler( "OnMoveStop", function() 
+    SV.stats.display.x = win:GetLeft() 
+    SV.stats.display.y = win:GetTop()
+  end)  
+
+  local frag = ZO_HUDFadeSceneFragment:New( win ) 
+  local function DefineFragmentScenes(enabled)
+    if enabled then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+  end
+
+  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors()
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
+  ctrl:SetDimensions( 0,0 )
+
+  local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
+  back:ClearAnchors()
+  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
+  back:SetDimensions( 200, 60)
+  back:SetCenterColor(0,0,0,0.5)
+  back:SetEdgeColor(0,0,0,1)
+  back:SetEdgeTexture(nil , 2, 2, 2)
+
+  local icon = WM:CreateControl( name.."Icon", ctrl, CT_TEXTURE )
+  icon:ClearAnchors() 
+  icon:SetAnchor( CENTER, ctrl, CENTER, 0, -2 ) 
+  icon:SetDimensions(60,60)
+  icon:SetDesaturation(0.1)
+  icon:SetColor(0,1,0,0.7)
+  --icon:SetTexture("/art/fx/texture/arcanist_support_portalgroundrune.dds")
+  icon:SetTexture("esoui/art/icons/class/gamepad/gp_class_arcanist.dds")
+
+  local labelL = WM:CreateControl( name.."LabelL", ctrl, CT_LABEL )
+  labelL:ClearAnchors() 
+  labelL:SetAnchor(CENTER, icon, LEFT, -30, -10)
+  labelL:SetColor(1,1,1,1)
+  labelL:SetText("0")
+  labelL:SetFont( Lib.GetFont(36) )
+  labelL:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  labelL:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
+
+  local Early = WM:CreateControl( name.."Early", ctrl, CT_LABEL )
+  Early:ClearAnchors() 
+  Early:SetAnchor(TOP, labelL, BOTTOM, 0, -5)
+  Early:SetColor(1,1,1,1)
+  Early:SetText("Premature")
+  Early:SetFont( Lib.GetFont(14) )
+  Early:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  Early:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
+
+  local labelR = WM:CreateControl( name.."LabelR", ctrl, CT_LABEL )
+  labelR:ClearAnchors() 
+  labelR:SetAnchor(CENTER, icon, RIGHT, 30, -10)
+  labelR:SetColor(1,1,1,1)
+  labelR:SetText("0")
+  labelR:SetFont( Lib.GetFont(36) )
+  labelR:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  labelR:SetHorizontalAlignment( TEXT_ALIGN_LEFT  )
+
+  local Late = WM:CreateControl( name.."Late", ctrl, CT_LABEL )
+  Late:ClearAnchors() 
+  Late:SetAnchor(TOP, labelR, BOTTOM, 0, -5)
+  Late:SetColor(1,1,1,1)
+  Late:SetText("Overcast")
+  Late:SetFont( Lib.GetFont(14) )
+  Late:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  Late:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
+
+  local function UpdateStats() 
+    labelR:SetText(tostring(stats.tardyCast)) 
+    labelL:SetText(tostring(stats.earlyCast))
+  end
+
+  return {DefineFragmentScenes = DefineFragmentScenes, UpdateStats = UpdateStats, win = win}
+end
+
+
 --[[ --------------- ]]
 --[[ -- Interface -- ]]
 --[[ --------------- ]]
@@ -76,13 +180,7 @@ local function InitializeNumeric()
   ctrl:SetDimensions( 0,0 )
   ctrl:SetScale(2)
 
-  --[[
-  local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
-  back:ClearAnchors()
-  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  back:SetDimensions( 25, 25)
-  back:SetCenterColor(0,0,0,1)
-  ]]
+
 
   local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
   label:ClearAnchors() 
@@ -208,8 +306,12 @@ local function ApplySettings()
   Graphic.indicator.ApplyDistance(SV.graphical.distance, SV.graphical.size)
   Graphic.indicator.ApplySize(SV.graphical.size)
 
+  Display.DefineFragmentScenes(SV.stats.display.enabled)
+
   Numeric.win:SetMovable(not SV.locked) 
   Graphic.win:SetMovable(not SV.locked) 
+  Display.win:SetMovable(not SV.locked)
+
 end
 
 --[[ ------------------ ]]
@@ -242,10 +344,22 @@ end
 
 local function OnCombatStart() 
   -- show all ui that should 
+  ResetStats()
+  Display.UpdateStats()
 end 
 
 local function OnCombatEnd() 
   -- hide all ui 
+  
+  if SV.stats.chatOutput then  
+    --local str = Lib.AddIconToString(Lib.ColorString("Crux Score", {0,1,0,1}), "esoui/art/icons/class_buff_arcanist_crux.dds", 24, "front")
+    local str = Lib.ColorString( Lib.AddIconToString("Crux Score", "esoui/art/icons/class/gamepad/gp_class_arcanist.dds", 24, "front"), {0,1,0,1})
+    local earlyNum = Lib.ColorString( tostring(stats.earlyCast), {1,0,0,1})
+    local earlyStr = Lib.ColorString( "Premature", {0,1,0,1})
+    local tardyNum = Lib.ColorString( tostring(stats.tardyCast), {1,0,0,1})
+    local tardyStr = Lib.ColorString( "Overcast", {0,1,0,1})
+    d(zo_strformat("<<1>>: <<2>> <<3>> <<6>> <<4>> <<5>>", str, earlyNum, earlyStr, tardyNum, tardyStr, Lib.ColorString("&", {1,1,1,1}) ) )
+  end
 end
 
 local function OnUpdate() 
@@ -274,11 +388,19 @@ end
 
 local function OnCruxChange(_, changeType, _, _, _, _, _, stackCount) 
   if changeType == EFFECT_RESULT_FADED then
+    if previousCrux < 3 then 
+      stats.earlyCast = stats.earlyCast + 1 
+      Display.UpdateStats()
+    end
     SetCrux(0)
     return
   end
   if stackCount == 3 then 
     SoundWarning() 
+    if previousCrux == 3 then 
+      stats.tardyCast = stats.tardyCast + 1 
+      Display.UpdateStats()
+    end
   end
   SetCrux(stackCount)
 end
@@ -426,6 +548,20 @@ local function SoundSubmenu()
 end
 
 
+local function StatsSubmenu() 
+  local controls = {} 
+
+    table.insert(controls, DefineSetting("checkbox", "Display", SV.stats.display, "enabled"))
+    table.insert(controls, DefineSetting("checkbox", "Chat Message", SV.stats, "chatOutput"))
+
+  return {
+    type="submenu", 
+    name="Statistics (BETA)", 
+    controls = controls, 
+  }
+end
+
+
 local function InitializeMenu() 
   local LAM2 = LibAddonMenu2
 
@@ -452,6 +588,7 @@ local function InitializeMenu()
   table.insert(optionsTable, NumericSubmenu() ) 
   table.insert(optionsTable, GraphicalSubmenu() )
   table.insert(optionsTable, SoundSubmenu() ) 
+  table.insert(optionsTable, StatsSubmenu() )
 
   LAM2:RegisterAddonPanel('ExoYCruxTracker_Menu', panelData)
   LAM2:RegisterOptionControls('ExoYCruxTracker_Menu', optionsTable)
@@ -494,6 +631,14 @@ local function GetDefaults()
       sound = 1, 
       },
     }
+    defaults.stats = {
+      display = {
+        enabled = false,
+        x = 600, 
+        y = 600, 
+      }, 
+      chatOutput = false,
+    }
   return defaults 
 end
 
@@ -506,6 +651,7 @@ local function Initialize()
 
   Numeric = InitializeNumeric() 
   Graphic = InitializeGraphic() 
+  Display = InitializeStatistics()
   ApplySettings() 
 
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
@@ -515,9 +661,9 @@ local function Initialize()
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
 
   EM:RegisterForEvent(idECT, EVENT_PLAYER_ACTIVATED, OnPlayerActivated)
-  -- TODO publish version 6 of lib!!! 
-  -- Lib.RegisterCombatStart( OnCombatStart )
-  -- Lib.RegisterCombatEnd( OnCombatEnd ) 
+
+  Lib.RegisterCombatStart( OnCombatStart )
+  Lib.RegisterCombatEnd( OnCombatEnd ) 
 end
 
 
