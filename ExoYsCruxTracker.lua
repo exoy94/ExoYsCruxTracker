@@ -13,7 +13,7 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "0.2.0"
+local vECT = "1.0.0"
 
 local cruxId = 184220
 
@@ -326,12 +326,12 @@ local function SoundWarning()
 
   if previousCrux == 3 then 
     if SV.soundCue.overcast.enabled then 
-      for i=1,(SV.soundCue.overcast.volume-1)*3+1 do 
+      for i=1,SV.soundCue.overcast.volume do 
         PlaySound(SOUNDS[soundList[SV.soundCue.overcast.sound]])
       end
     end
   elseif SV.soundCue.full.enabled then
-    for i=1,(SV.soundCue.full.volume-1)*3+1 do 
+    for i=1,SV.soundCue.full.volume do 
       PlaySound(SOUNDS[soundList[SV.soundCue.full.sound]])
     end
   end
@@ -550,13 +550,17 @@ end
 
 local function StatsSubmenu() 
   local controls = {} 
-
-    table.insert(controls, DefineSetting("checkbox", "Display", SV.stats.display, "enabled"))
-    table.insert(controls, DefineSetting("checkbox", "Chat Message", SV.stats, "chatOutput"))
-
-  return {
+    table.insert(controls, DefineSetting("checkbox", "Display", SV.stats.display, "enabled", nil, nil, "Window showing coaching stats."))
+    table.insert(controls, DefineSetting("checkbox", "Chat Message", SV.stats, "chatOutput", nil, nil, "Outputs coaching stats in chat after each fight."))
+    table.insert(controls, {type="header", name="Information"})
+    table.insert(controls, {type="description", text=zo_strformat("Mainly aimed at helping <<1>>, the coach is providing statistics on how effectively you handle your Crux.", Lib.ColorString("Damage Dealers", {0,1,1,1}))})
+    table.insert(controls, {type="description", title="Premature", text="Using a Crux spending skill, when you have less than 3 Crux. ", width = "half"})
+    table.insert(controls, {type="description", title="Overcast", text="Casting a Crux generating skill, when you have already 3 Crux. ", width = "half"})
+    table.insert(controls, {type="header", name="Known Issues"})
+    table.insert(controls, {type="description", text="Premature cast not registered, if you dont have at least 1 Crux."})
+  return {  
     type="submenu", 
-    name="Statistics (BETA)", 
+    name="Crux Coach (BETA)", 
     controls = controls, 
   }
 end
@@ -600,34 +604,33 @@ end
 --[[ -------------------- ]]
 
 local function GetDefaults() 
+  local width, height = GuiRoot:GetDimensions() 
   local defaults = {}
     defaults.locked = false
     defaults.numeric = { 
-      x = 600, 
-      y = 600, 
-      center = false,
+      x = width/2, 
+      y = height/2, 
       font = 2, 
-      size = 20, 
+      size = 30, 
       enabled = true,  
       color = { {0,1,0},{0,1,0},{0,1,0},{0,1,0} }
     }
     defaults.graphical = {
-      size = 20,
+      size = 50,
       distance = 5, 
-      x = 600, 
-      y = 600, 
-      center = false, 
+      x = width/2, 
+      y = height/2+100, 
       enabled = true, 
     }
     defaults.soundCue= {
       full = {
         enabled = true, 
-        volume = 3, 
+        volume = 1, 
         sound = 1, 
         },
       overcast = {
-      enabled = true, 
-      volume = 3, 
+      enabled = false, 
+      volume = 1, 
       sound = 1, 
       },
     }

@@ -2,7 +2,7 @@
 ## Author: @|c40FF00ExoY|r94 (PC/EU)
 ## Description: Visual Indicator for the amount of crux you have.
 ## APIVersion: 101038
-## Version: 0.2.0
+## Version: 1.0.0
 ## SavedVariables: ExoYsCruxTrackerSavedVariables
 
 ## DependsOn: LibAddonMenu-2.0
