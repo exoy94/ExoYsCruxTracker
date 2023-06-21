@@ -507,7 +507,7 @@ local function SoundSubmenu()
   table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.full, "enabled", nil, nil, "Plays a sound when you reach three crux."))
   table.insert(controls, {
     type = "dropdown",
-    name = "Font",  
+    name = "Sound",  
     choices = soundList, 
     getFunc = function() return soundList[SV.soundCue.full.sound] end, 
     setFunc = function(selection)
@@ -519,13 +519,13 @@ local function SoundSubmenu()
       PlaySound(SOUNDS[selection])
     end,
   }) 
-  table.insert(controls, DefineSetting("slider", "Volumne", SV.soundCue.full, "volume", {1,30,1}))
+  table.insert(controls, DefineSetting("slider", "Volume", SV.soundCue.full, "volume", {1,30,1}))
 
   table.insert(controls, {type="header", name="Overcast"})
   table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.overcast, "enabled", nil, nil, "Plays a sound when you already have three crux and cast a crux-generating skill."))
   table.insert(controls, {
     type = "dropdown",
-    name = "Font",  
+    name = "Sound",  
     choices = soundList, 
     getFunc = function() return soundList[SV.soundCue.overcast.sound] end, 
     setFunc = function(selection)
