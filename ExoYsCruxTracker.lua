@@ -43,6 +43,7 @@ local previousCrux = 0
 
 local stats = {earlyCast = 0, tardyCast = 0}
 local Display
+local HidePending = false
 
 --[[ ---------------- ]]
 --[[ -- Statistics -- ]] 
@@ -373,6 +374,12 @@ local function ApplySettings()
 
 end
 
+local function HideAllGui() 
+  Numeric.DefineFragmentScenes(false)
+  Timer.DefineFragmentScenes(false)
+  Graphic.DefineFragmentScenes(false)
+end
+
 --[[ ------------------ ]]
 --[[ -- Crux Handler -- ]]
 --[[ ------------------ ]]
@@ -402,13 +409,21 @@ end
 --[[ ------------ ]]
 
 local function OnCombatStart() 
-  -- show all ui that should 
+  HidePending = false
+  ApplySettings() 
+
   ResetStats()
   Display.UpdateStats()
 end 
 
-local function OnCombatEnd() 
-  -- hide all ui 
+local function OnCombatEnd()
+  if SV.hideOutsideCombat then
+    if SV.onlyHideIfZero then  
+      HidePending = true
+    else 
+      HideAllGui()
+    end
+  end
   
   if SV.stats.chatOutput then  
     --local str = Lib.AddIconToString(Lib.ColorString("Crux Score", {0,1,0,1}), "esoui/art/icons/class_buff_arcanist_crux.dds", 24, "front")
@@ -436,6 +451,10 @@ local function OnUpdate()
 
   if not hasCrux then 
     Timer.label:SetText(SV.locked and "" or "0s")  
+    if HidePending then 
+      HideAllGui()
+      HidePending = false
+    end
   end
 
   -- numeric
@@ -696,6 +715,29 @@ local function InitializeMenu()
       SV.locked = bool
       ApplySettings() 
     end,})
+  table.insert(optionsTable, {type="divider"})
+  table.insert(optionsTable, {
+    type = "checkbox", 
+    name = "Hide outside Combat", 
+    getFunc = function() return SV.hideOutsideCombat end,
+    setFunc = function(bool) 
+      SV.hideOutsideCombat = bool
+      if bool and not Lib.IsInCombat() then 
+        HideAllGui() 
+      end
+      if not bool then 
+        ApplySettings() 
+      end
+    end,})  
+    table.insert(optionsTable, {
+      disabled = function() return not SV.hideOutsideCombat end,
+      type = "checkbox", 
+      tooltip = "Changes take effect the next time you leave combat.",
+      name = "Keep showing as long as you have Crux", 
+      getFunc = function() return SV.onlyHideIfZero end,
+      setFunc = function(bool) 
+        SV.onlyHideIfZero = bool
+      end,})   
   table.insert(optionsTable, NumericSubmenu() ) 
   table.insert(optionsTable, GraphicalSubmenu() )
   table.insert(optionsTable, TimerSubmenu() ) 
@@ -715,6 +757,8 @@ local function GetDefaults()
   local width, height = GuiRoot:GetDimensions() 
   local defaults = {}
     defaults.locked = false
+    defaults.hideOutsideCombat = false
+    defaults.onlyHideIfZero = false
     defaults.numeric = { 
       x = width/2, 
       y = height/2, 
@@ -738,7 +782,7 @@ local function GetDefaults()
       color = {0,1,0},
       enabled = true,
       font = 2, 
-      size = 30, 
+      size = 20, 
     }
     defaults.soundCue= {
       full = {
@@ -775,6 +819,10 @@ local function Initialize()
   Display = InitializeStatistics()
   Timer = InitializeTimer()
   ApplySettings() 
+
+  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
+    HideAllGui()
+  end
 
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
 
