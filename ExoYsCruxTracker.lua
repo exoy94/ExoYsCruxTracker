@@ -13,7 +13,7 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "1.0.0"
+local vECT = "1.1.0"
 
 local cruxId = 184220
 
