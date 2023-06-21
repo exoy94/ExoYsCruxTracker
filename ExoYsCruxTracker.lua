@@ -23,6 +23,7 @@ local Lib = LibExoYsUtilities
 
 local Numeric
 local Graphic
+local Timer
 
 local soundList = {
   "ABILITY_COMPANION_ULTIMATE_READY",
@@ -147,6 +148,53 @@ end
 --[[ --------------- ]]
 --[[ -- Interface -- ]]
 --[[ --------------- ]]
+
+local function InitializeTimer() 
+  local name = idECT.."Timer"
+
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.timer.x, SV.timer.y)
+  win:SetMouseEnabled(true) 
+  win:SetMovable(true)
+  win:SetHidden(true)
+  win:SetClampedToScreen(true) 
+  win:SetHandler( "OnMoveStop", function() 
+    SV.timer.x = win:GetLeft() 
+    SV.timer.y = win:GetTop()
+  end)  
+
+  local frag = ZO_HUDFadeSceneFragment:New( win ) 
+  local function DefineFragmentScenes(enabled)
+    if enabled then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+  end
+
+  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors()
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
+  ctrl:SetDimensions( 0,0 )
+  ctrl:SetScale(2)
+
+
+
+  local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
+  label:ClearAnchors() 
+  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
+  label:SetColor(unpack(SV.timer.color))
+  label:SetText("xxx")
+
+  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
+
+  return {DefineFragmentScenes = DefineFragmentScenes, win = win, label = label}
+end
+
 
 local function InitializeNumeric() 
   local name = idECT.."NumericTracker"
@@ -295,12 +343,22 @@ end
 
 
 local function ApplySettings() 
-  Numeric.DefineFragmentScenes(SV.numeric.enabled)
   local fontList = Lib.GetFontList() 
+
+  Numeric.DefineFragmentScenes(SV.numeric.enabled)
+
   Numeric.label:SetFont( Lib.GetFont({font=fontList[SV.numeric.font], size = SV.numeric.size, outline=2}) ) 
   local numericHeight = Numeric.label:GetTextHeight() 
   local numericWidth = Numeric.label:GetTextWidth() 
   Numeric.win:SetDimensions(2*numericWidth, 2*numericHeight)
+
+  Timer.DefineFragmentScenes(SV.timer.enabled)
+  Timer.label:SetFont( Lib.GetFont({font=fontList[SV.timer.font], size = SV.timer.size, outline=2}) )
+  Timer.label:SetText("0s")
+  local timerHeight = Timer.label:GetTextHeight() 
+  local timerWidth = Timer.label:GetTextWidth() 
+  Timer.win:SetDimensions(2*timerWidth, 2*timerHeight)
+  Timer.label:SetColor(unpack(SV.timer.color))
 
   Graphic.DefineFragmentScenes(SV.graphical.enabled)
   Graphic.indicator.ApplyDistance(SV.graphical.distance, SV.graphical.size)
@@ -311,6 +369,7 @@ local function ApplySettings()
   Numeric.win:SetMovable(not SV.locked) 
   Graphic.win:SetMovable(not SV.locked) 
   Display.win:SetMovable(not SV.locked)
+  Timer.win:SetMovable(not SV.locked)
 
 end
 
@@ -364,13 +423,21 @@ end
 
 local function OnUpdate() 
   local crux = 0 
+  local hasCrux = false 
   for i=1,GetNumBuffs("player") do
-    local _,_,_,_,stack,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
+    local _,_,endTime,_,stack,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
     if abilityId == 184220 then 
+      hasCrux = true
       crux = stack 
+      Timer.label:SetText( Lib.GetCountdownString( endTime-GetGameTimeSeconds(), true, false, true ) ) 
       break 
     end 
   end
+
+  if not hasCrux then 
+    Timer.label:SetText(SV.locked and "" or "0s")  
+  end
+
   -- numeric
   Numeric.label:SetText(tostring(crux))
   Numeric.label:SetColor(unpack(SV.numeric.color[crux+1]))
@@ -484,6 +551,46 @@ local function NumericSubmenu()
   }
 end
 
+local function TimerSubmenu() 
+  local controls = {}
+
+  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.timer, "enabled"))
+  table.insert(controls, {type="divider"})
+  table.insert(controls, DefineSetting("slider", "Size", SV.timer, "size", {10,80,5}))
+  table.insert(controls, {
+    type = "dropdown",
+    name = "Font",  
+    choices = Lib.GetFontList(), 
+    getFunc = function() 
+      local fontList = Lib.GetFontList()
+      return fontList[SV.timer.font] end, 
+    setFunc = function(selection)
+      local fontList = Lib.GetFontList() 
+      for id, font in ipairs(fontList) do 
+        if selection == font then 
+          SV.timer.font = id
+        end
+      end
+      ApplySettings()
+    end,
+  }) 
+  table.insert(controls, {
+    type = "colorpicker",
+    name = "Color",
+    getFunc = function() return unpack(SV.timer.color) end,	--(alpha is optional)
+    setFunc = function(r,g,b)
+      SV.timer.color = {r, g, b}
+      ApplySettings()
+    end,
+  })
+
+  return { 
+    type = "submenu", 
+    name = "Timer", 
+    controls = controls,
+  }
+end
+
 
 local function GraphicalSubmenu()
   local controls = {}
@@ -591,6 +698,7 @@ local function InitializeMenu()
     end,})
   table.insert(optionsTable, NumericSubmenu() ) 
   table.insert(optionsTable, GraphicalSubmenu() )
+  table.insert(optionsTable, TimerSubmenu() ) 
   table.insert(optionsTable, SoundSubmenu() ) 
   table.insert(optionsTable, StatsSubmenu() )
 
@@ -621,6 +729,16 @@ local function GetDefaults()
       x = width/2, 
       y = height/2+100, 
       enabled = true, 
+      size = 30, 
+      enabled = true,  
+    }
+    defaults.timer = {
+      x = width/2, 
+      y = height/2+200, 
+      color = {0,1,0},
+      enabled = true,
+      font = 2, 
+      size = 30, 
     }
     defaults.soundCue= {
       full = {
@@ -655,6 +773,7 @@ local function Initialize()
   Numeric = InitializeNumeric() 
   Graphic = InitializeGraphic() 
   Display = InitializeStatistics()
+  Timer = InitializeTimer()
   ApplySettings() 
 
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
