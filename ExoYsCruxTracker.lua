@@ -493,7 +493,7 @@ local function OnCombatStart()
   Display.UpdateStats()
 
   --check if a banner with class mastery is worn 
-  d("check for banner")
+  --d("check for banner")
   local abilityId = 0
   for ii = 3,7,1 do 
     for jj = 0,1 do 
@@ -506,21 +506,6 @@ local function OnCombatStart()
       end 
     end 
   end 
-
-  
-
-  --d("bannerid: "..tostring(abilityId))
-
-  for ii = 1,GetNumBuffs("player") do
-    local _, time, _, _, _, _, _, _, _, _, buffId = GetUnitBuffInfo("player", ii) 
-    if string.find(string.lower(GetAbilityName(buffId)),"banner") then 
-    --if buffId == abilityId then 
-      d(GetGameTimeMilliseconds() ) 
-      d("BannerStart at "..tostring(time*1000))
-      BannerStart = time*1000
-    end
-  end
-
 end 
 
 local function OnCombatEnd()
