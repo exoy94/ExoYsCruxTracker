@@ -13,7 +13,7 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "1.1.0"
+local vECT = "1.2.0"
 
 local cruxId = 184220
 
@@ -24,6 +24,8 @@ local Lib = LibExoYsUtilities
 local Numeric
 local Graphic
 local Timer
+local Banner
+local BannerStart 
 
 local soundList = {
   "ABILITY_COMPANION_ULTIMATE_READY",
@@ -182,8 +184,6 @@ local function InitializeTimer()
   ctrl:SetDimensions( 0,0 )
   ctrl:SetScale(2)
 
-
-
   local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
   label:ClearAnchors() 
   label:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
@@ -194,6 +194,80 @@ local function InitializeTimer()
   label:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
 
   return {DefineFragmentScenes = DefineFragmentScenes, win = win, label = label}
+end
+
+local function InitializeBannerUi()
+  local name = idECT.."Banner"
+
+  local iconSize = 25
+  local edgeSize = 0
+  local edgeLine = 2
+
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.banner.x, SV.banner.y)
+  win:SetMouseEnabled(true) 
+  win:SetMovable(true)
+  win:SetHidden(true)
+  win:SetDimensions(iconSize, iconSize)
+  win:SetClampedToScreen(true) 
+  win:SetHandler( "OnMoveStop", function() 
+    SV.banner.x = win:GetLeft() 
+    SV.banner.y = win:GetTop()
+  end)  
+
+  local frag = ZO_HUDFadeSceneFragment:New( win ) 
+  local function DefineFragmentScenes(enabled)
+    if enabled then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+  end
+
+  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors()
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
+  ctrl:SetDimensions( 0,0 )
+  ctrl:SetScale(2)
+
+  local edge = WM:CreateControl( name.."edge", ctrl, CT_BACKDROP)
+  edge:ClearAnchors()
+  edge:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
+  edge:SetDimensions( iconSize + 2*( edgeSize + edgeLine ) , iconSize + 2*( edgeSize + edgeLine ) )
+  edge:SetEdgeColor( 0, 0, 0, 1 )
+  edge:SetCenterColor( 0, 0, 0, 0.3 )
+  edge:SetEdgeTexture( nil , edgeLine , edgeLine , edgeLine)
+
+  local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
+  back:ClearAnchors()
+  back:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
+  back:SetDimensions( iconSize , iconSize)
+  back:SetEdgeColor( 0, 0, 0, 1)
+  back:SetCenterColor(0, 0, 0, 1)
+  back:SetEdgeTexture( nil , edgeLine , edgeLine , edgeLine )
+
+  local texture = "esoui/art/icons/scribing_secondary_classmod_arcanist.dds"
+  local icon = WM:CreateControl( name.."icon", ctrl, CT_TEXTURE) 
+  icon:ClearAnchors()
+  icon:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
+  icon:SetDimensions( iconSize - 2*edgeLine , iconSize - 2*edgeLine )
+  icon:SetTexture( texture )
+  icon:SetAlpha(1)
+
+  local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
+  label:ClearAnchors()
+  label:SetAnchor( CENTER, ctrl, CENTER, 0,0)
+  label:SetDimensions( iconSize , iconSize )
+  label:SetColor( 1, 1, 1, 1 )
+  label:SetFont( Lib.GetFont(12) )
+  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
+  label:SetText("")
+  
+  return {DefineFragmentScenes = DefineFragmentScenes, label = label}  
 end
 
 
@@ -367,6 +441,8 @@ local function ApplySettings()
 
   Display.DefineFragmentScenes(SV.stats.display.enabled)
 
+  
+
   Numeric.win:SetMovable(not SV.locked) 
   Graphic.win:SetMovable(not SV.locked) 
   Display.win:SetMovable(not SV.locked)
@@ -378,6 +454,7 @@ local function HideAllGui()
   Numeric.DefineFragmentScenes(false)
   Timer.DefineFragmentScenes(false)
   Graphic.DefineFragmentScenes(false)
+  Banner.DefineFragmentScenes(false) 
 end
 
 --[[ ------------------ ]]
@@ -414,9 +491,40 @@ local function OnCombatStart()
 
   ResetStats()
   Display.UpdateStats()
+
+  --check if a banner with class mastery is worn 
+  d("check for banner")
+  local abilityId = 0
+  for ii = 3,7,1 do 
+    for jj = 0,1 do 
+      local id = GetSlotBoundId(ii,jj) 
+      if id == 12 then 
+        local a,b,c = GetCraftedAbilityActiveScriptIds(12) 
+        if b == 31 then 
+          Banner.DefineFragmentScenes(SV.banner.enabled)
+        end
+      end 
+    end 
+  end 
+
+  
+
+  --d("bannerid: "..tostring(abilityId))
+
+  for ii = 1,GetNumBuffs("player") do
+    local _, time, _, _, _, _, _, _, _, _, buffId = GetUnitBuffInfo("player", ii) 
+    if string.find(string.lower(GetAbilityName(buffId)),"banner") then 
+    --if buffId == abilityId then 
+      d(GetGameTimeMilliseconds() ) 
+      d("BannerStart at "..tostring(time*1000))
+      BannerStart = time*1000
+    end
+  end
+
 end 
 
 local function OnCombatEnd()
+  Banner.DefineFragmentScenes(false)
   if SV.hideOutsideCombat then
     if SV.onlyHideIfZero then  
       HidePending = true
@@ -449,6 +557,12 @@ local function OnUpdate()
     end 
   end
 
+  ---Banner Tracker 
+    local bannerCrux = ((math.floor((GetGameTimeMilliseconds() - BannerStart)/5000)+1)*5000)+BannerStart
+    Banner.label:SetText( Lib.GetCountdownString(  bannerCrux-GetGameTimeMilliseconds(), true, true, false) ) 
+
+
+
   if not hasCrux then 
     Timer.label:SetText(SV.locked and "" or "0s")  
     if HidePending then 
@@ -468,6 +582,8 @@ local function OnUpdate()
   for i=1,crux do 
     Graphic.indicator[i].Activate() 
   end
+
+
 
 end
 
@@ -715,6 +831,16 @@ local function InitializeMenu()
       SV.locked = bool
       ApplySettings() 
     end,})
+    table.insert(optionsTable, {
+      type = "checkbox", 
+      name = "Banner Tracker (BETA)",
+      tooltip = "Adds countdown for crux created by banner bearer scribing skill with class mastery. Disclaimer: This is only a poof of concept prototype. Please let me know if anything does not work as you would expect.",
+      getFunc = function() return SV.banner.enabled end, 
+      setFunc = function(bool) 
+        SV.banner.enabled = bool 
+        Banner.DefineFragmentScenes(bool) 
+      end,
+    })
   table.insert(optionsTable, {type="divider"})
   table.insert(optionsTable, {
     type = "checkbox", 
@@ -804,6 +930,16 @@ local function GetDefaults()
       }, 
       chatOutput = false,
     }
+    defaults.armor = {
+      enabled = true, 
+      x = 600, 
+      y = 600, 
+    }
+    defaults.banner = {
+      enabled = true, 
+      x = 600, 
+      y = 600, 
+    }
   return defaults 
 end
 
@@ -818,13 +954,35 @@ local function Initialize()
   Graphic = InitializeGraphic() 
   Display = InitializeStatistics()
   Timer = InitializeTimer()
+  --Armor = InitializeCdUi(Graphic, 'armor')
+  Banner = InitializeBannerUi()
   ApplySettings() 
+
+  BannerStart = GetGameTimeMilliseconds() 
 
   if not Lib.IsInCombat() and SV.hideOutsideCombat then 
     HideAllGui()
   end
 
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
+
+  EM:RegisterForUpdate(idECT.."bannercrux", 1000, function() 
+    local hasBanner = false 
+    for ii = 1,GetNumBuffs("player") do
+      local _, time, _, _, _, _, _, _, _, _, buffId = GetUnitBuffInfo("player", ii) 
+      if string.find(string.lower(GetAbilityName(buffId)),"banner") then 
+      --if buffId == abilityId then 
+        --d(GetGameTimeMilliseconds() ) 
+        --d("BannerStart at "..tostring(time*1000))
+        hasBanner = true
+        BannerStart = time*1000
+        Banner.label:SetHidden(false)
+      end
+    end  
+    if not hasBanner then 
+      Banner.label:SetHidden(true)
+    end
+  end)
 
   EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, OnCruxChange)
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
