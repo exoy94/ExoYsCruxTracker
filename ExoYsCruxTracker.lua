@@ -13,7 +13,7 @@ local SV
 
 local idECT = "ExoYsCruxTracker"
 local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "1.2.0"
+local vECT = "1.3.0"
 
 local cruxId = 184220
 
@@ -46,6 +46,16 @@ local previousCrux = 0
 local stats = {earlyCast = 0, tardyCast = 0}
 local Display
 local HidePending = false
+
+--[[ Subclassing ]]
+
+function HasArcanistSkills() 
+  for i=1,3 do
+		if SKILLS_DATA_MANAGER:GetActiveClassSkillLine(i):GetClassId() == 117 then return true end 
+	end
+  return false 
+end 
+
 
 --[[ ---------------- ]]
 --[[ -- Statistics -- ]] 
@@ -928,26 +938,12 @@ local function GetDefaults()
   return defaults 
 end
 
-local function Initialize()
-  -- x,y, snapToMiddle, locked, showOutsideCombat, 
 
-  SV = ZO_SavedVars:NewAccountWide("ExoYsCruxTrackerSavedVariables", 1, nil, GetDefaults() )
+local isActive = false
 
-  InitializeMenu() 
+local function ActivateAddon() 
 
-  Numeric = InitializeNumeric() 
-  Graphic = InitializeGraphic() 
-  Display = InitializeStatistics()
-  Timer = InitializeTimer()
-  --Armor = InitializeCdUi(Graphic, 'armor')
-  Banner = InitializeBannerUi()
-  ApplySettings() 
-
-  BannerStart = GetGameTimeMilliseconds() 
-
-  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
-    HideAllGui()
-  end
+  isActive = true
 
   EM:RegisterForUpdate(idECT, 100, OnUpdate)
 
@@ -977,15 +973,69 @@ local function Initialize()
 
   Lib.RegisterCombatStart( OnCombatStart )
   Lib.RegisterCombatEnd( OnCombatEnd ) 
+
+  ApplySettings() 
+  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
+    HideAllGui()
+  end
+  
+end
+
+local function DeactivateAddon() 
+
+  isActive = false
+
+  EM:UnregisterForUpdate(idECT) 
+  EM:UnregisterForUpdate(idECT.."bannercrux")
+  EM:UnregisterForEvent(idECT, EVENT_EFFECT_CHANGED) 
+  EM:UnregisterForEvent(idECT, EVENT_PLAYER_ACTIVATED) 
+
+  Lib.UnregisterCombatStart( OnCombatStart )
+  Lib.UnregisterCombatEnd( OnCombatEnd )
+  HideAllGui()
+end
+
+
+
+local function Initialize()
+  -- x,y, snapToMiddle, locked, showOutsideCombat, 
+
+  SV = ZO_SavedVars:NewAccountWide("ExoYsCruxTrackerSavedVariables", 1, nil, GetDefaults() )
+
+  InitializeMenu() 
+
+  Numeric = InitializeNumeric() 
+  Graphic = InitializeGraphic() 
+  Display = InitializeStatistics()
+  Timer = InitializeTimer()
+  --Armor = InitializeCdUi(Graphic, 'armor')
+  Banner = InitializeBannerUi()
+  ApplySettings() 
+
+  BannerStart = GetGameTimeMilliseconds() 
+
+  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
+    HideAllGui()
+  end
+
+  
+
+  local function CheckForArc() 
+    if HasArcanistSkills() then 
+      if not isActive then ActivateAddon() end
+    else 
+      if isActive then DeactivateAddon() end
+    end
+  end
+
+  EM:RegisterForUpdate(idECT.."subclassCheck", 3000, CheckForArc) 
 end
 
 
 local function OnAddonLoaded(_, addonName)
   if addonName == idECT then
     EM:UnregisterForEvent(idECT, EVENT_ADD_ON_LOADED)
-    if GetUnitClassId("player") == 117 then 
-      Initialize()
-    end
+    Initialize()
   end
 end
 EM:RegisterForEvent(idECT, EVENT_ADD_ON_LOADED, OnAddonLoaded)

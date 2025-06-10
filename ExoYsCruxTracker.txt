@@ -1,8 +1,8 @@
 ## Title: |c40FF00ExoY|rs Crux Tracker
 ## Author: @|c40FF00ExoY|r94 (PC/EU)
 ## Description: Visual Indicator for the amount of crux you have.
-## APIVersion: 101044
-## Version: 1.2.0
+## APIVersion: 101046
+## Version: 1.3.0
 ## SavedVariables: ExoYsCruxTrackerSavedVariables
 
 ## DependsOn: LibAddonMenu-2.0
