@@ -23,17 +23,10 @@ local cruxId = 184220
 local cruxDuration = GetAbilityDuration( cruxId )
 
 local Gui = {}
-
+local CruxTracker = {} 
+local Update = {}
 
 local Lib = LibExoYsUtilities --@ToDo
-
-
-
-local Numeric
-local Graphic
-local Timer
-local Banner
-local BannerStart 
 
 local soundList = {
   "ABILITY_COMPANION_ULTIMATE_READY",
@@ -48,12 +41,6 @@ local soundList = {
   "BATTLEGROUND_MURDERBALL_RETURNED",
   "COUNTDOWN_TICK",
 }
-
-local previousCrux = 0 
-
-local stats = {earlyCast = 0, tardyCast = 0}
-local Display
-local HidePending = false
 
 --[[ ---------------------- ]]
 --[[ -- Symbolic Tracker -- ]]
@@ -336,7 +323,7 @@ end
 --[[ -- Crux Tracker -- ]]
 --[[ ------------------ ]]
 
-CruxTracker = {} 
+
 CruxTracker.hasCrux = false;
 
 function CruxTracker:OnCruxChange(changeType, stackCount) 
@@ -392,7 +379,7 @@ end
 --[[ -- Update -- ]]
 --[[ ------------ ]]
 
-Update = {}
+
 
 local function OnUpdate()   
   Visuals:Update( GetGameTimeMilliSeconds() ) 
