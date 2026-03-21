@@ -9,8 +9,8 @@ ECT_SETTING_COLOR = "Color"
 ECT_SETTING_UI_UNLOCK = "Unlock"
 ECT_SETTING_UI_LOCK = "Lock"
 
-ECT_SETTING_HIDE_WHEN_ZERO_CRUX = "Hide tracker when zero crux"
-ECT_SETTING_SHOW_ALWAYS_IN_COMBAT = "[but] show tracker always in combat"
+ECT_SETTING_HIDE_WHEN_ZERO_CRUX = "Hide tracker when at zero crux"
+ECT_SETTING_SHOW_ALWAYS_IN_COMBAT = "[but] always show tracker in combat"
 
 ECT_SETTING_SPACING = "Spacing"
 
@@ -26,3 +26,15 @@ ECT_SETTING_LAYOUT_LEFT = "Expand left"
 ECT_SETTING_LAYOUT_RIGHT = "Expand right"
 ECT_SETTING_LAYOUT_UP = "Expand up"
 ECT_SETTING_LAYOUT_DOWN = "Expand down"
+
+ECT_SETTING_AUDIO_CUE = "Audio Cue"
+ECT_SETTING_SOUND = "Sound"
+ECT_SETTING_VOLUME = "Volume"
+ECT_AUDIO_CUE_ZERO_CRUX = "Zero Crux"
+ECT_AUDIO_CUE_ONE_CRUX = "One Crux"
+ECT_AUDIO_CUE_TWO_CRUX = "Two Crux"
+ECT_AUDIO_CUE_THREE_CRUX = "Three Crux"
+ECT_AUDIO_CUE_WASTE_CRUX = "Waste Crux"
+
+ECT_SETTING_UNLOCK_UI = "Unlock UI (show all UI-elements)"
+
