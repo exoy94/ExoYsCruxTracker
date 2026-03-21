@@ -26,9 +26,34 @@ local Gui = {}
 local CruxTracker = {} 
 local Update = {}
 
-local uiUnlock = false 
+local uiIsUnlocked = false 
+local addonIsSleeping = true 
 
-local Lib = LibExoYsUtilities --@ToDo
+
+--[[ ---------------- ]]
+--[[ -- Visibility -- ]]
+--[[ ---------------- ]]
+
+local function HideGui( ) 
+  Giu.symbolic.SetScenes( false ) 
+end 
+
+
+local function ShowGui( showAll )
+  Gui.symbolic.SetScenes( showAll or SV.p.symbolic.enabled ) 
+end
+
+
+function SetVisibility() 
+  if uiIsUnlocked then ShowGui( true ) return end 
+  if addonIsSleeping then HideGui() return end 
+  if CruxTracker.hasCrux then ShowGui() return end
+  if LibExoY.isInCombat inCombat and SV.p.showAlwaysInCombat then ShowGui() return end 
+  if not CruxTracker.hasCrux and SV.p.hideWhenNoCrux then HideGui() return end 
+end
+
+
+
 
 --[[ ---------------- ]]
 --[[ -- Audio Cues -- ]]
@@ -165,19 +190,16 @@ local function InitializeSymbolicTracker()
     SV.p.symbolic.posY = win:GetTop()
   end)
 
-  --[[
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
-  HUD_UI_SCENE:AddFragment( frag )
-  HUD_SCENE:AddFragment( frag )
-  local function DefineFragmentScenes(enabled)
-    if enabled then 
+  local function SetScenes( showUi )
+    if showUi then 
       HUD_UI_SCENE:AddFragment( frag )
       HUD_SCENE:AddFragment( frag )
     else 
       HUD_UI_SCENE:RemoveFragment( frag )
       HUD_SCENE:RemoveFragment( frag )
     end
-  end ]] 
+  end 
 
   local symbols = {}
 
@@ -274,7 +296,7 @@ local function InitializeSymbolicTracker()
   symbols[1].ctrl:SetAnchor(CENTER, win, CENTER, 0, 0) 
   UpdateLayout()
 
-  return {UpdateLayout = UpdateLayout, UpdateCrux = UpdateCrux}
+  return {UpdateLayout = UpdateLayout, UpdateCrux = UpdateCrux, SetScenes = SetScenes}
 end -- of "InitializeSymbolicTracker"
 
 local function GetSymbolicTrackerMenuControls()
@@ -483,41 +505,38 @@ function Update:Stop()
   self.isRunning = false;
 end
 
-
 --[[ ------------------------------- ]]
 --[[ -- Activate/Deactivate Addon -- ]]
 --[[ --   based on Skill-Lines    -- ]]
 --[[ ------------------------------- ]]
 
-local isAwake = false 
-
-
-local function ManageEvents( deactivateAll ) 
- 
-  
-
-end
-
 
 local function WakeUp() 
-  if isAwake then return end    -- cant get any more awake
-  
+  if not addonIsSleeping then return end    -- cant get any more awake
+  addonIsSleeping = false 
   -- Update:Start() if any feature that requires an unpdate is active, start the update 
 
   -- check settings and apply them 
   -- register events 
   -- initial check of crux 
-  isAwake = true
+
+ 
 end
 
 local function GoToSleep() 
-  if not isAwake then return end  -- dont need to poke a sleeping bear
+  if addonIsSleeping then return end  -- dont need to poke a sleeping bear
+  addonIsSleeping = true 
+
+
+
   -- unregister all events / updates 
   -- hide ui 
+
+
+
   CruxTracker:SetCruxAmount(0) 
   Update:Stop() 
 
-  isAwake = false
 end
 
 
@@ -553,9 +572,10 @@ local function GetMenuControls()
   table.insert(controls, {
     type = "checkbox", 
     name = ECT_SETTING_UNLOCK_UI,
-    getFunc = function() return false end, 
+    getFunc = function() return uiIsUnlocked end, 
     setFunc = function(bool) 
-      --@ToDo
+      uiIsUnlocked = bool 
+      SetVisibility()
     end, 
   })
   table.insert( controls, {
@@ -587,13 +607,14 @@ end
 
 local function OnProfilChange() 
 
+
 end
 
 
 local function ProfileDefaults() 
   return {
     showAlwaysInCombat = true, 
-    hideWhenZeroCrux = true, 
+    hideWhenNoCrux = true, 
     symbolic = GetSymbolicTrackerSettingDefaults(),
     audioCue = GetAudioCueDefaults(), 
     number = {
@@ -604,9 +625,6 @@ end
 
 
 local function Initialize()
-  -- x,y, snapToMiddle, locked, showOutsideCombat, 
-  
-  local isLocked = true
 
   ---[[ Saved Variables ]]
   local SavedVariablesParameter = {
@@ -633,15 +651,14 @@ local function Initialize()
 
   Gui.symbolic = InitializeSymbolicTracker() 
   
-  
+  LibExoY.RegisterCombatStart( function() SetVisibility() end )
+  LibExoY.RegisterCombatEnd( function() SetVisibility() end )
 
   EM:RegisterForEvent(idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED, function() 
       CheckSkillLines() 
       EM:UnregisterForEvent( idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED )
     end )
   EM:RegisterForEvent(idECT.."SkillsUpdated", EVENT_SKILLS_FULL_UPDATE, CheckSkillLines)
-
-
 
   EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, function(_, changeType, _, _, _, _, _, stackCount) 
     if changeType == EFFECT_RESULT_FADED then 
