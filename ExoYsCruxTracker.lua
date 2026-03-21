@@ -11,15 +11,23 @@ local EM = GetEventManager()
 local WM = GetWindowManager()
 local SV 
 
+local LibExoY = LibExoYsUtilities
+
+local arcanistId = 117
+
 local idECT = "ExoYsCruxTracker"
-local nECT = "|c00FF00ExoY|rs Crux Tracker"
-local vECT = "1.3.0"
+local nameECT = "|c00FF00ExoY|rs Crux Tracker"
+local versionECT = "2.0.0"
 
 local cruxId = 184220
+local cruxDuration = GetAbilityDuration( cruxId )
 
 local Gui = {}
 
-local Lib = LibExoYsUtilities
+
+local Lib = LibExoYsUtilities --@ToDo
+
+
 
 local Numeric
 local Graphic
@@ -47,302 +55,40 @@ local stats = {earlyCast = 0, tardyCast = 0}
 local Display
 local HidePending = false
 
---[[ Subclassing ]]
+--[[ ---------------------- ]]
+--[[ -- Symbolic Tracker -- ]]
+--[[ ---------------------- ]]
 
-function HasArcanistSkills() 
-  for i=1,3 do
-		if SKILLS_DATA_MANAGER:GetActiveClassSkillLine(i):GetClassId() == 117 then return true end 
-	end
-  return false 
-end 
-
-
---[[ ---------------- ]]
---[[ -- Statistics -- ]] 
---[[ ---------------- ]]
-
-local function ResetStats() 
-  stats = {earlyCast = 0, tardyCast = 0}
+local function GetSymbolicTrackerSettingDefaults() 
+  return {
+    enabled = true, 
+    posX = 600, 
+    posY = 600,
+    layout = 2, 
+    spacing = 1, 
+    color = {
+      [1] = {1,1,1,1},
+      [2] = {1,1,1,1},
+      [3] = {1,1,1,1},
+    },
+    size = 1,
+  }
 end
 
-local function InitializeStatistics() 
-  local name = idECT.."Statistics"
-  local win = WM:CreateTopLevelWindow( name.."Window" )
-  win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.stats.display.x, SV.stats.display.y)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
-  win:SetHidden(true)
-  win:SetClampedToScreen(true) 
-  win:SetDimensions(100,35) 
-  win:SetHandler( "OnMoveStop", function() 
-    SV.stats.display.x = win:GetLeft() 
-    SV.stats.display.y = win:GetTop()
-  end)  
-
-  local frag = ZO_HUDFadeSceneFragment:New( win ) 
-  local function DefineFragmentScenes(enabled)
-    if enabled then 
-      HUD_UI_SCENE:AddFragment( frag )
-      HUD_SCENE:AddFragment( frag )
-    else 
-      HUD_UI_SCENE:RemoveFragment( frag )
-      HUD_SCENE:RemoveFragment( frag )
-    end
-  end
-
-  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
-  ctrl:ClearAnchors()
-  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
-  ctrl:SetDimensions( 0,0 )
-
-  local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
-  back:ClearAnchors()
-  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  back:SetDimensions( 200, 60)
-  back:SetCenterColor(0,0,0,0.5)
-  back:SetEdgeColor(0,0,0,1)
-  back:SetEdgeTexture(nil , 2, 2, 2)
-
-  local icon = WM:CreateControl( name.."Icon", ctrl, CT_TEXTURE )
-  icon:ClearAnchors() 
-  icon:SetAnchor( CENTER, ctrl, CENTER, 0, -2 ) 
-  icon:SetDimensions(60,60)
-  icon:SetDesaturation(0.1)
-  icon:SetColor(0,1,0,0.7)
-  --icon:SetTexture("/art/fx/texture/arcanist_support_portalgroundrune.dds")
-  icon:SetTexture("esoui/art/icons/class/gamepad/gp_class_arcanist.dds")
-
-  local labelL = WM:CreateControl( name.."LabelL", ctrl, CT_LABEL )
-  labelL:ClearAnchors() 
-  labelL:SetAnchor(CENTER, icon, LEFT, -30, -10)
-  labelL:SetColor(1,1,1,1)
-  labelL:SetText("0")
-  labelL:SetFont( Lib.GetFont(36) )
-  labelL:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  labelL:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
-
-  local Early = WM:CreateControl( name.."Early", ctrl, CT_LABEL )
-  Early:ClearAnchors() 
-  Early:SetAnchor(TOP, labelL, BOTTOM, 0, -5)
-  Early:SetColor(1,1,1,1)
-  Early:SetText("Premature")
-  Early:SetFont( Lib.GetFont(14) )
-  Early:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  Early:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
-
-  local labelR = WM:CreateControl( name.."LabelR", ctrl, CT_LABEL )
-  labelR:ClearAnchors() 
-  labelR:SetAnchor(CENTER, icon, RIGHT, 30, -10)
-  labelR:SetColor(1,1,1,1)
-  labelR:SetText("0")
-  labelR:SetFont( Lib.GetFont(36) )
-  labelR:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  labelR:SetHorizontalAlignment( TEXT_ALIGN_LEFT  )
-
-  local Late = WM:CreateControl( name.."Late", ctrl, CT_LABEL )
-  Late:ClearAnchors() 
-  Late:SetAnchor(TOP, labelR, BOTTOM, 0, -5)
-  Late:SetColor(1,1,1,1)
-  Late:SetText("Overcast")
-  Late:SetFont( Lib.GetFont(14) )
-  Late:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  Late:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
-
-  local function UpdateStats() 
-    labelR:SetText(tostring(stats.tardyCast)) 
-    labelL:SetText(tostring(stats.earlyCast))
-  end
-
-  return {DefineFragmentScenes = DefineFragmentScenes, UpdateStats = UpdateStats, win = win}
-end
-
-
---[[ --------------- ]]
---[[ -- Interface -- ]]
---[[ --------------- ]]
-
-local function InitializeTimer() 
-  local name = idECT.."Timer"
+local function InitializeSymbolicTracker() 
+  local name = idECT.."SymbolicIndicator"
 
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.timer.x, SV.timer.y)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
-  win:SetHidden(true)
-  win:SetClampedToScreen(true) 
-  win:SetHandler( "OnMoveStop", function() 
-    SV.timer.x = win:GetLeft() 
-    SV.timer.y = win:GetTop()
-  end)  
-
-  local frag = ZO_HUDFadeSceneFragment:New( win ) 
-  local function DefineFragmentScenes(enabled)
-    if enabled then 
-      HUD_UI_SCENE:AddFragment( frag )
-      HUD_SCENE:AddFragment( frag )
-    else 
-      HUD_UI_SCENE:RemoveFragment( frag )
-      HUD_SCENE:RemoveFragment( frag )
-    end
-  end
-
-  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
-  ctrl:ClearAnchors()
-  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
-  ctrl:SetDimensions( 0,0 )
-  ctrl:SetScale(2)
-
-  local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
-  label:ClearAnchors() 
-  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  label:SetColor(unpack(SV.timer.color))
-  label:SetText("xxx")
-
-  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
-
-  return {DefineFragmentScenes = DefineFragmentScenes, win = win, label = label}
-end
-
-local function InitializeBannerUi()
-  local name = idECT.."Banner"
-
-  local iconSize = 25
-  local edgeSize = 0
-  local edgeLine = 2
-
-  local win = WM:CreateTopLevelWindow( name.."Window" )
-  win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.banner.x, SV.banner.y)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
-  win:SetHidden(true)
-  win:SetDimensions(iconSize, iconSize)
-  win:SetClampedToScreen(true) 
-  win:SetHandler( "OnMoveStop", function() 
-    SV.banner.x = win:GetLeft() 
-    SV.banner.y = win:GetTop()
-  end)  
-
-  local frag = ZO_HUDFadeSceneFragment:New( win ) 
-  local function DefineFragmentScenes(enabled)
-    if enabled then 
-      HUD_UI_SCENE:AddFragment( frag )
-      HUD_SCENE:AddFragment( frag )
-    else 
-      HUD_UI_SCENE:RemoveFragment( frag )
-      HUD_SCENE:RemoveFragment( frag )
-    end
-  end
-
-  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
-  ctrl:ClearAnchors()
-  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
-  ctrl:SetDimensions( 0,0 )
-  ctrl:SetScale(2)
-
-  local edge = WM:CreateControl( name.."edge", ctrl, CT_BACKDROP)
-  edge:ClearAnchors()
-  edge:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
-  edge:SetDimensions( iconSize + 2*( edgeSize + edgeLine ) , iconSize + 2*( edgeSize + edgeLine ) )
-  edge:SetEdgeColor( 0, 0, 0, 1 )
-  edge:SetCenterColor( 0, 0, 0, 0.3 )
-  edge:SetEdgeTexture( nil , edgeLine , edgeLine , edgeLine)
-
-  local back = WM:CreateControl( name.."back", ctrl, CT_BACKDROP)
-  back:ClearAnchors()
-  back:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
-  back:SetDimensions( iconSize , iconSize)
-  back:SetEdgeColor( 0, 0, 0, 1)
-  back:SetCenterColor(0, 0, 0, 1)
-  back:SetEdgeTexture( nil , edgeLine , edgeLine , edgeLine )
-
-  local texture = "esoui/art/icons/scribing_secondary_classmod_arcanist.dds"
-  local icon = WM:CreateControl( name.."icon", ctrl, CT_TEXTURE) 
-  icon:ClearAnchors()
-  icon:SetAnchor( CENTER, ctrl, CENTER, 0, 0 )
-  icon:SetDimensions( iconSize - 2*edgeLine , iconSize - 2*edgeLine )
-  icon:SetTexture( texture )
-  icon:SetAlpha(1)
-
-  local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
-  label:ClearAnchors()
-  label:SetAnchor( CENTER, ctrl, CENTER, 0,0)
-  label:SetDimensions( iconSize , iconSize )
-  label:SetColor( 1, 1, 1, 1 )
-  label:SetFont( Lib.GetFont(12) )
-  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
-  label:SetText("")
-  
-  return {DefineFragmentScenes = DefineFragmentScenes, label = label}  
-end
-
-
-local function InitializeNumeric() 
-  local name = idECT.."NumericTracker"
-
-  local win = WM:CreateTopLevelWindow( name.."Window" )
-  win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.numeric.x, SV.numeric.y)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
-  win:SetHidden(true)
-  win:SetClampedToScreen(true) 
-  win:SetHandler( "OnMoveStop", function() 
-    SV.numeric.x = win:GetLeft() 
-    SV.numeric.y = win:GetTop()
-  end)  
-
-  local frag = ZO_HUDFadeSceneFragment:New( win ) 
-  local function DefineFragmentScenes(enabled)
-    if enabled then 
-      HUD_UI_SCENE:AddFragment( frag )
-      HUD_SCENE:AddFragment( frag )
-    else 
-      HUD_UI_SCENE:RemoveFragment( frag )
-      HUD_SCENE:RemoveFragment( frag )
-    end
-  end
-
-  local ctrl = WM:CreateControl( name.."Ctrl", win, CT_CONTROL)
-  ctrl:ClearAnchors()
-  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0)
-  ctrl:SetDimensions( 0,0 )
-  ctrl:SetScale(2)
-
-
-
-  local label = WM:CreateControl( name.."Label", ctrl, CT_LABEL )
-  label:ClearAnchors() 
-  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
-  label:SetColor(unpack(SV.numeric.color[1]))
-  label:SetText("0")
-
-  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
-  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER  )
-
-  return {DefineFragmentScenes = DefineFragmentScenes, win = win, label = label}
-end
-
-
-
-local function InitializeGraphic() 
-  local name = idECT.."GraphicTracker"
-
-  local win = WM:CreateTopLevelWindow( name.."Window" )
-  win:ClearAnchors() 
-  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.graphical.x, SV.graphical.y)
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.symbolic.posX, SV.p.symbolic.posY)
   win:SetMouseEnabled(true) 
   win:SetMovable(true)
   win:SetClampedToScreen(true) 
   win:SetDimensions( 50,50 )
   win:SetHidden(true)
   win:SetHandler( "OnMoveStop", function() 
-    SV.graphical.x = win:GetLeft() 
-    SV.graphical.y = win:GetTop()
+    SV.p.symbol.posX = win:GetLeft() 
+    SV.p.symbol.posY = win:GetTop()
   end)
 
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
@@ -356,38 +102,38 @@ local function InitializeGraphic()
     end
   end
 
-  local indicator = {}
+  local symbols = {}
 
-  local function GetIndicator(i) 
+  local function DefineSymbol(i) 
 
-    local ind = WM:CreateControl(name.."Indicator"..tostring(i), win, CT_CONTROL)
+    local ctrl = WM:CreateControl(name.."SymbolCtrl"..tostring(i), win, CT_CONTROL)
 
-    local back  = WM:CreateControl(name.."Back"..tostring(i), ind, CT_TEXTURE )
+    local back  = WM:CreateControl(name.."SymbolBack"..tostring(i), ctrl, CT_TEXTURE )
     back:ClearAnchors()
-    back:SetAnchor( CENTER, ind, CENTER, 0, 0)
+    back:SetAnchor( CENTER, ctrl, CENTER, 0, 0)
     back:SetAlpha(0.8)
     back:SetTexture( "esoui/art/champion/champion_center_bg.dds")
 
-    local frame = WM:CreateControl(name.."Frame"..tostring(i), ind, CT_TEXTURE )
+    local frame = WM:CreateControl(name.."SymbolFrame"..tostring(i), ctrl, CT_TEXTURE )
     frame:ClearAnchors()
-    frame:SetAnchor( CENTER, ind, CENTER, 0, 0)
+    frame:SetAnchor( CENTER, ctrl, CENTER, 0, 0)
     frame:SetTexture( "esoui/art/champion/actionbar/champion_bar_slot_frame_disabled.dds")
 
-    local icon = WM:CreateControl( name.."Icon"..tostring(i), ind, CT_TEXTURE )
+    local icon = WM:CreateControl( name.."SymbolIcon"..tostring(i), ctrl, CT_TEXTURE )
     icon:ClearAnchors() 
-    icon:SetAnchor( CENTER, ind, CENTER, 0, 0 ) 
+    icon:SetAnchor( CENTER, ctrl, CENTER, 0, 0 ) 
     icon:SetDesaturation(0.1)
     icon:SetTexture("/art/fx/texture/arcanist_trianglerune_01.dds")
 
-    local highlight  = WM:CreateControl(name.."Highlight"..tostring(i), ind, CT_TEXTURE )
+    local highlight  = WM:CreateControl(name.."SymbolHighlight"..tostring(i), ctrl, CT_TEXTURE )
     highlight:ClearAnchors()
-    highlight:SetAnchor( CENTER, ind, CENTER, 0, 0)
+    highlight:SetAnchor( CENTER, ctrl, CENTER, 0, 0)
     highlight:SetDesaturation(0.4)
     highlight:SetTexture( "esoui/art/champion/actionbar/champion_bar_world_selection.dds")
     highlight:SetColor(0,1,0)
 
     local function Activate()
-      icon:SetColor(0,1,0,1)
+      icon:SetColor(unpack(SV.p.symbolic.color[i]))    
       highlight:SetAlpha(0.8)    
     end
 
@@ -396,35 +142,147 @@ local function InitializeGraphic()
       highlight:SetAlpha(0)
     end
 
-    local controls = {ind = ind, back = back, frame = frame, icon = icon, highlight = highlight}
-    return {win = win, controls = controls, Activate = Activate, Deactivate = Deactivate}
+    local function ChangeSize(size)
+      back:SetDimensions(size*0.85,size*0.85)  
+      frame:SetDimensions(size,size)
+      highlight:SetDimensions(size,size)
+      icon:SetDimensions(size*0.75,size*0.75)
+    end
+
+    return {ctrl = ctrl, Activate = Activate, Deactivate = Deactivate, ChangeSize = ChangeSize}
   end
 
   for i =1,3 do 
-    indicator[i] = GetIndicator(i)
+    symbols[i] = DefineSymbol(i)
   end 
 
-  local function ApplySize(size) 
-    for i=1,3 do 
-      indicator[i].controls.back:SetDimensions(size*0.85,size*0.85)
-      indicator[i].controls.frame:SetDimensions(size,size)
-      indicator[i].controls.highlight:SetDimensions(size,size)
-      indicator[i].controls.icon:SetDimensions(size*0.75,size*0.75)   
+  local function UpdateSize() 
+    for _, symbol in ipairs(symbols) do 
+      symbol.ChangeSize( SV.p.symbolic.size ) 
     end
   end
-  indicator.ApplySize = ApplySize
 
-  local function ApplyDistance(distance, size) 
-    for i=1,3 do 
-      local xOffset = (i-2)*(size+distance)
-      indicator[i].controls.ind:ClearAnchors()
-      indicator[i].controls.ind:SetAnchor( CENTER, win, CENTER, xOffset, 0)
+  local function UpdateLayout()
+    local layout = SV.p.symbolic.layout
+    local size = SV.p.symbolic.size 
+    local spacing = SV.p.symbolic.spacing
+    local orientation = {
+          [1] = {-1, 0},  -- left
+          [2] = { 1, 0},   -- right 
+          [3] = { 0, 1},    -- up
+          [4] = { 0,-1},  -- down
+        }
+        local coef = orientation[layout]
+    for i = 2,3 do 
+      local symbol = symbols[i]
+      local offsetX = coef[1]*(i-2)*(size+spacing)
+      local offsetY = coef[2]*(i-2)*(size+spacing)
+      symbol.ctrl:ClearAnchors() 
+      symbol.ctrl:SetAnchor(CENTER, win, CENTER, offsetX, offsetY)      
     end
   end
-  indicator.ApplyDistance = ApplyDistance
 
-  return {win = win, indicator = indicator, DefineFragmentScenes = DefineFragmentScenes}
+  -- initialize current settings 
+  UpdateSize()
+  UpdateLayout()
+
+  return {UpdateSize = UpdateSize, UpdateLayout = UpdateLayout}
 end
+
+local function GetSymbolicTrackerMenuControls()
+  local controls = {} 
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLE, 
+    getFunc = function() return SV.p.symbolic.enabled end, 
+    setFunc = function(bool) 
+      SV.p.symbolic.enabled = bool
+    end,
+  })
+    table.insert( controls, {
+    type = "header", 
+    name = ECT_SETTING_DESIGN,
+    width = "full", 
+  })
+  table.insert( controls, {
+    type = "slider", 
+    name = ECT_SETTING_SIZE, 
+    min = 20, 
+    max = 80, 
+    step = 2, 
+    getFunc = function() return SV.p.symbolic.size end, 
+    setFunc = function(value) 
+      SV.p.symbolic.size = value
+    end
+  })
+    table.insert( controls, {
+    type = "slider", 
+    name = ECT_SETTING_SPACING, 
+    min = 20, 
+    max = 80, 
+    step = 2, 
+    getFunc = function() return SV.p.symbolic.spacing end, 
+    setFunc = function(value) 
+      SV.p.symbolic.spacing = value
+    end
+  })
+  local symbolicLayoutChoices = {
+    ECT_SETTING_LAYOUT_LEFT,
+    ECT_SETTING_LAYOUT_RIGHT, 
+    ECT_SETTING_LAYOUT_UP, 
+    ECT_SETTING_LAYOUT_DOWN
+  }
+  ectGlobal = symbolicLayoutChoices
+  table.insert( controls, {
+    type = "dropdown", 
+    name = ECT_SETTING_LAYOUT, 
+    choices = symbolicLayoutChoices, 
+    getFunc = function() return symbolicLayoutChoices[SV.p.symbolic.layout] end, 
+    setFunc = function(layout)
+      for idx, str in ipairs(symbolicLayoutChoices) do 
+        if str == layout then 
+          SV.p.symbolic.layout = idx
+          break
+        end
+      end
+    end,
+  })
+  table.insert( controls, {
+    type = "header", 
+    name = ECT_SETTING_COLOR,
+    width = "full", 
+  })
+  local colorSettingStr = {
+    ECT_SETTING_SYMBOLIC_COLOR_FIRST,
+    ECT_SETTING_SYMBOLIC_COLOR_SECOND, 
+    ECT_SETTING_SYMBOLIC_COLOR_THIRD,
+  }
+  for i = 1,3 do 
+    table.insert( controls, {
+    type = "colorpicker", 
+    name = colorSettingStr[i],
+    getFunc = function() return unpack(SV.p.symbolic.color[i]) end,
+    setFunc = function(r,g,b,a) 
+      SV.p.symbolic.color[i] = {r,g,b,a}
+    end, 
+  })
+  end
+  return {
+    type = "submenu", 
+    name = ECT_SETTING_SYMBOLIC_TRACKER,
+    controls = controls, 
+  }
+end
+
+
+
+
+--[[ ------------- ]]
+--[[ -- Visuals -- ]]
+--[[ ------------- ]]
+
+
+
 
 
 local function ApplySettings() 
@@ -467,568 +325,293 @@ local function HideAllGui()
   Banner.DefineFragmentScenes(false) 
 end
 
---[[ ------------------ ]]
---[[ -- Crux Handler -- ]]
---[[ ------------------ ]]
-
-local function SetCrux(crux) 
-  previousCrux = crux
-end
-
-local function SoundWarning() 
-
-  if previousCrux == 3 then 
-    if SV.soundCue.overcast.enabled then 
-      for i=1,SV.soundCue.overcast.volume do 
-        PlaySound(SOUNDS[soundList[SV.soundCue.overcast.sound]])
-      end
-    end
-  elseif SV.soundCue.full.enabled then
-    for i=1,SV.soundCue.full.volume do 
-      PlaySound(SOUNDS[soundList[SV.soundCue.full.sound]])
-    end
-  end
-
-end
 
 --[[ ------------ ]]
 --[[ -- Events -- ]]
 --[[ ------------ ]]
 
-local function OnCombatStart() 
-  HidePending = false
-  ApplySettings() 
 
-  ResetStats()
-  Display.UpdateStats()
 
-  --check if a banner with class mastery is worn 
-  --d("check for banner")
-  local abilityId = 0
-  for ii = 3,7,1 do 
-    for jj = 0,1 do 
-      local id = GetSlotBoundId(ii,jj) 
-      if id == 12 then 
-        local a,b,c = GetCraftedAbilityActiveScriptIds(12) 
-        if b == 31 then 
-          Banner.DefineFragmentScenes(SV.banner.enabled)
-        end
-      end 
-    end 
-  end 
-end 
+--[[ ------------------ ]]
+--[[ -- Crux Tracker -- ]]
+--[[ ------------------ ]]
 
-local function OnCombatEnd()
-  Banner.DefineFragmentScenes(false)
-  if SV.hideOutsideCombat then
-    if SV.onlyHideIfZero then  
-      HidePending = true
-    else 
-      HideAllGui()
-    end
-  end
-  
-  if SV.stats.chatOutput then  
-    --local str = Lib.AddIconToString(Lib.ColorString("Crux Score", {0,1,0,1}), "esoui/art/icons/class_buff_arcanist_crux.dds", 24, "front")
-    local str = Lib.ColorString( Lib.AddIconToString("Crux Score", "esoui/art/icons/class/gamepad/gp_class_arcanist.dds", 24, "front"), {0,1,0,1})
-    local earlyNum = Lib.ColorString( tostring(stats.earlyCast), {1,0,0,1})
-    local earlyStr = Lib.ColorString( "Premature", {0,1,0,1})
-    local tardyNum = Lib.ColorString( tostring(stats.tardyCast), {1,0,0,1})
-    local tardyStr = Lib.ColorString( "Overcast", {0,1,0,1})
-    d(zo_strformat("<<1>>: <<2>> <<3>> <<6>> <<4>> <<5>>", str, earlyNum, earlyStr, tardyNum, tardyStr, Lib.ColorString("&", {1,1,1,1}) ) )
+CruxTracker = {} 
+CruxTracker.hasCrux = false;
+
+function CruxTracker:OnCruxChange(changeType, stackCount) 
+    if changeType == EFFECT_RESULT_FADED then 
+    -- i just spend / lost my crux 
+    -- crux amount is zero 
+    -- i spend "stackCount amount" 
+    self:SetCruxAmount( 0 ) 
+  else 
+    self:SetCruxAmount( stackCount )-- my new amount of crux is "stackCount" 
   end
 end
 
-local function OnUpdate() 
-  local crux = 0 
-  local hasCrux = false 
+function CruxTracker:SetCruxAmount( currentCrux, cruxEnd )
+  if currentCrux == 0 then 
+    self.hasCrux = false 
+  else 
+    self.hasCrux = true
+    self.cruxEnd = cruxEnd and cruxEnd or GetGameTimeSeconds() + cruxDuration
+  end
+  --Interface:Update( currentCrux ) @ToDo
+end
+
+function CruxTracker:ReadCruxInfo() 
   for i=1,GetNumBuffs("player") do
-    local _,_,endTime,_,stack,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
-    if abilityId == 184220 then 
-      hasCrux = true
-      crux = stack 
-      Timer.label:SetText( Lib.GetCountdownString( endTime-GetGameTimeSeconds(), true, false, true ) ) 
+    local _,_,endTime,_,stackCount,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
+    if abilityId == cruxId then 
+      self:SetCruxAmount(stackCount, endTime) 
       break 
     end 
-  end
-
-  ---Banner Tracker 
-    local bannerCrux = ((math.floor((GetGameTimeMilliseconds() - BannerStart)/5000)+1)*5000)+BannerStart
-    Banner.label:SetText( Lib.GetCountdownString(  bannerCrux-GetGameTimeMilliseconds(), true, true, false) ) 
-
-
-
-  if not hasCrux then 
-    Timer.label:SetText(SV.locked and "" or "0s")  
-    if HidePending then 
-      HideAllGui()
-      HidePending = false
-    end
-  end
-
-  -- numeric
-  Numeric.label:SetText(tostring(crux))
-  Numeric.label:SetColor(unpack(SV.numeric.color[crux+1]))
-  -- graphic
-  for i=1,3 do 
-    Graphic.indicator[i].Deactivate() 
-  end
-  if crux == 0 then return end
-  for i=1,crux do 
-    Graphic.indicator[i].Activate() 
-  end
-
+  end  
 
 
 end
 
 
-local function OnCruxChange(_, changeType, _, _, _, _, _, stackCount) 
-  if changeType == EFFECT_RESULT_FADED then
-    if previousCrux < 3 then 
-      stats.earlyCast = stats.earlyCast + 1 
-      Display.UpdateStats()
-    end
-    SetCrux(0)
-    return
-  end
-  if stackCount == 3 then 
-    SoundWarning() 
-    if previousCrux == 3 then 
-      stats.tardyCast = stats.tardyCast + 1 
-      Display.UpdateStats()
-    end
-  end
-  SetCrux(stackCount)
-end
+----
 
 
 local function OnPlayerActivated() 
   local crux = 0 
   for i=1,GetNumBuffs("player") do
     local _,_,_,_,stack,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
-    if abilityId == 184220 then 
+    if abilityId == cruxId then 
       previousCrux = stack
     end 
   end
 end
 
---[[ ---------- ]]
---[[ -- Menu -- ]]
---[[ ---------- ]]
 
-local function DefineSetting(setting, name, t, k, param, half, tt) 
-  local s = { type=setting, name=name }
-  s.getFunc = function() return t[k] end 
-  s.setFunc = function(v) 
-    t[k] = v
-    ApplySettings()  
-    end 
-  if setting == "slider" then 
-    s.min, s.max, s.step = param[1], param[2], param[3] 
-    s.decimals = 2
-  end
-  if half then 
-    s.width = "half"
-  end
-  if tt then 
-    s.tooltip = tt 
-  end
-  return s
-end
 
-local function NumericSubmenu() 
-  local controls = {}
+--[[ ------------ ]]
+--[[ -- Update -- ]]
+--[[ ------------ ]]
 
-  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.numeric, "enabled"))
-  table.insert(controls, {type="divider"})
-  table.insert(controls, DefineSetting("slider", "Size", SV.numeric, "size", {10,80,5}))
-  table.insert(controls, {
-    type = "dropdown",
-    name = "Font",  
-    choices = Lib.GetFontList(), 
-    getFunc = function() 
-      local fontList = Lib.GetFontList()
-      return fontList[SV.numeric.font] end, 
-    setFunc = function(selection)
-      local fontList = Lib.GetFontList() 
-      for id, font in ipairs(fontList) do 
-        if selection == font then 
-          SV.numeric.font = id
-        end
-      end
-      ApplySettings()
-    end,
-  }) 
-  table.insert(controls, {type="divider"})
-  local numberStr = {"Zero", "One", "Two", "Three"}
-  for i=1,4 do 
-    table.insert(controls, {
-      type = "colorpicker",
-      name = "Color "..numberStr[i],
-      getFunc = function() return unpack(SV.numeric.color[i]) end,	--(alpha is optional)
-      setFunc = function(r,g,b)
-        SV.numeric.color[i] = {r, g, b}
-      end,
-      width = "half",	--or "half" (optional)
-    })
-  end
+Update = {}
 
-  return { 
-    type = "submenu", 
-    name = "Numeric Indicator", 
-    controls = controls,
-  }
-end
-
-local function TimerSubmenu() 
-  local controls = {}
-
-  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.timer, "enabled"))
-  table.insert(controls, {type="divider"})
-  table.insert(controls, DefineSetting("slider", "Size", SV.timer, "size", {10,80,5}))
-  table.insert(controls, {
-    type = "dropdown",
-    name = "Font",  
-    choices = Lib.GetFontList(), 
-    getFunc = function() 
-      local fontList = Lib.GetFontList()
-      return fontList[SV.timer.font] end, 
-    setFunc = function(selection)
-      local fontList = Lib.GetFontList() 
-      for id, font in ipairs(fontList) do 
-        if selection == font then 
-          SV.timer.font = id
-        end
-      end
-      ApplySettings()
-    end,
-  }) 
-  table.insert(controls, {
-    type = "colorpicker",
-    name = "Color",
-    getFunc = function() return unpack(SV.timer.color) end,	--(alpha is optional)
-    setFunc = function(r,g,b)
-      SV.timer.color = {r, g, b}
-      ApplySettings()
-    end,
-  })
-
-  return { 
-    type = "submenu", 
-    name = "Timer", 
-    controls = controls,
-  }
+local function OnUpdate()   
+  Visuals:Update( GetGameTimeMilliSeconds() ) 
 end
 
 
-local function GraphicalSubmenu()
-  local controls = {}
+function Update:AddToList() 
 
-  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.graphical, "enabled"))
-  table.insert(controls, DefineSetting("slider", "Size", SV.graphical, "size", {20, 120, 10}))
-  table.insert(controls, DefineSetting("slider", "Spacing", SV.graphical, "distance", {0, 120, 10}))
-
-  return {
-    type = "submenu", 
-    name = "Graphical Indicator", 
-    controls = controls, 
-  }
-end
-
-
-local function SoundSubmenu() 
-  local controls = {} 
-
-  table.insert(controls, {type="header", name="Full Crux"})
-  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.full, "enabled", nil, nil, "Plays a sound when you reach three crux."))
-  table.insert(controls, {
-    type = "dropdown",
-    name = "Sound",  
-    choices = soundList, 
-    getFunc = function() return soundList[SV.soundCue.full.sound] end, 
-    setFunc = function(selection)
-      for id, sound in ipairs(soundList) do 
-        if selection == sound then 
-          SV.soundCue.full.sound = id
-        end
-      end
-      PlaySound(SOUNDS[selection])
-    end,
-  }) 
-  table.insert(controls, DefineSetting("slider", "Volume", SV.soundCue.full, "volume", {1,30,1}))
-
-  table.insert(controls, {type="header", name="Overcast"})
-  table.insert(controls, DefineSetting("checkbox", "Enabled", SV.soundCue.overcast, "enabled", nil, nil, "Plays a sound when you already have three crux and cast a crux-generating skill."))
-  table.insert(controls, {
-    type = "dropdown",
-    name = "Sound",  
-    choices = soundList, 
-    getFunc = function() return soundList[SV.soundCue.overcast.sound] end, 
-    setFunc = function(selection)
-      for id, sound in ipairs(soundList) do 
-        if selection == sound then 
-          SV.soundCue.overcast.sound = id
-        end
-      end
-      PlaySound(SOUNDS[selection])
-    end,
-  }) 
-  table.insert(controls, DefineSetting("slider", "Volume", SV.soundCue.overcast, "volume", {1,30,1}))
-
-
-  return {
-    type="submenu", 
-    name="Sound Cues", 
-    controls = controls, 
-  }
-end
-
-
-local function StatsSubmenu() 
-  local controls = {} 
-    table.insert(controls, DefineSetting("checkbox", "Display", SV.stats.display, "enabled", nil, nil, "Window showing coaching stats."))
-    table.insert(controls, DefineSetting("checkbox", "Chat Message", SV.stats, "chatOutput", nil, nil, "Outputs coaching stats in chat after each fight."))
-    table.insert(controls, {type="header", name="Information"})
-    table.insert(controls, {type="description", text=zo_strformat("Mainly aimed at helping <<1>>, the coach is providing statistics on how effectively you handle your Crux.", Lib.ColorString("Damage Dealers", {0,1,1,1}))})
-    table.insert(controls, {type="description", title="Premature", text="Using a Crux spending skill, when you have less than 3 Crux. ", width = "half"})
-    table.insert(controls, {type="description", title="Overcast", text="Casting a Crux generating skill, when you have already 3 Crux. ", width = "half"})
-    table.insert(controls, {type="header", name="Known Issues"})
-    table.insert(controls, {type="description", text="Premature cast not registered, if you dont have at least 1 Crux."})
-  return {  
-    type="submenu", 
-    name="Crux Coach (BETA)", 
-    controls = controls, 
-  }
-end
-
-
-local function InitializeMenu() 
-  local LAM2 = LibAddonMenu2
-
-  local panelData = {
-      type="panel", 
-      name=nECT, 
-      displayName=nECT, 
-      author = "@|c00FF00ExoY|r94 (PC/EU)", 
-      version = vECT, 
-      registerForRefresh = true, 
-  }
-  local optionsTable = {} 
-
-  --TODO add describtions and maybe support for multiple languages? 
-  table.insert(optionsTable, Lib.FeedbackSubmenu(nECT, "info3619-ExoYsCruxTracker.html"))
-  table.insert(optionsTable, {
-    type = "checkbox", 
-    name = "Lock Position", 
-    getFunc = function() return SV.locked end,
-    setFunc = function(bool) 
-      SV.locked = bool
-      ApplySettings() 
-    end,})
-    table.insert(optionsTable, {
-      type = "checkbox", 
-      name = "Banner Tracker (BETA)",
-      tooltip = "Adds countdown for crux created by banner bearer scribing skill with class mastery. Disclaimer: This is only a poof of concept prototype. Please let me know if anything does not work as you would expect.",
-      getFunc = function() return SV.banner.enabled end, 
-      setFunc = function(bool) 
-        SV.banner.enabled = bool 
-        Banner.DefineFragmentScenes(bool) 
-      end,
-    })
-  table.insert(optionsTable, {type="divider"})
-  table.insert(optionsTable, {
-    type = "checkbox", 
-    name = "Hide outside Combat", 
-    getFunc = function() return SV.hideOutsideCombat end,
-    setFunc = function(bool) 
-      SV.hideOutsideCombat = bool
-      if bool and not Lib.IsInCombat() then 
-        HideAllGui() 
-      end
-      if not bool then 
-        ApplySettings() 
-      end
-    end,})  
-    table.insert(optionsTable, {
-      disabled = function() return not SV.hideOutsideCombat end,
-      type = "checkbox", 
-      tooltip = "Changes take effect the next time you leave combat.",
-      name = "Keep showing as long as you have Crux", 
-      getFunc = function() return SV.onlyHideIfZero end,
-      setFunc = function(bool) 
-        SV.onlyHideIfZero = bool
-      end,})   
-  table.insert(optionsTable, NumericSubmenu() ) 
-  table.insert(optionsTable, GraphicalSubmenu() )
-  table.insert(optionsTable, TimerSubmenu() ) 
-  table.insert(optionsTable, SoundSubmenu() ) 
-  table.insert(optionsTable, StatsSubmenu() )
-
-  LAM2:RegisterAddonPanel('ExoYCruxTracker_Menu', panelData)
-  LAM2:RegisterOptionControls('ExoYCruxTracker_Menu', optionsTable)
 end 
 
 
---[[ -------------------- ]]
---[[ -- Initialization -- ]]
---[[ -------------------- ]]
+function Update:RemoveFromList() 
 
-local function GetDefaults() 
-  local width, height = GuiRoot:GetDimensions() 
-  local defaults = {}
-    defaults.locked = false
-    defaults.hideOutsideCombat = false
-    defaults.onlyHideIfZero = false
-    defaults.numeric = { 
-      x = width/2, 
-      y = height/2, 
-      font = 2, 
-      size = 30, 
-      enabled = true,  
-      color = { {0,1,0},{0,1,0},{0,1,0},{0,1,0} }
-    }
-    defaults.graphical = {
-      size = 50,
-      distance = 5, 
-      x = width/2, 
-      y = height/2+100, 
-      enabled = true, 
-      size = 30, 
-      enabled = true,  
-    }
-    defaults.timer = {
-      x = width/2, 
-      y = height/2+200, 
-      color = {0,1,0},
-      enabled = true,
-      font = 2, 
-      size = 20, 
-    }
-    defaults.soundCue= {
-      full = {
-        enabled = true, 
-        volume = 1, 
-        sound = 1, 
-        },
-      overcast = {
-      enabled = false, 
-      volume = 1, 
-      sound = 1, 
-      },
-    }
-    defaults.stats = {
-      display = {
-        enabled = false,
-        x = 600, 
-        y = 600, 
-      }, 
-      chatOutput = false,
-    }
-    defaults.armor = {
-      enabled = true, 
-      x = 600, 
-      y = 600, 
-    }
-    defaults.banner = {
-      enabled = true, 
-      x = 600, 
-      y = 600, 
-    }
-  return defaults 
 end
 
 
-local isActive = false
 
-local function ActivateAddon() 
 
-  isActive = true
-
-  EM:RegisterForUpdate(idECT, 100, OnUpdate)
-
-  EM:RegisterForUpdate(idECT.."bannercrux", 1000, function() 
-    local hasBanner = false 
-    for ii = 1,GetNumBuffs("player") do
-      local _, time, _, _, _, _, _, _, _, _, buffId = GetUnitBuffInfo("player", ii) 
-      if string.find(string.lower(GetAbilityName(buffId)),"banner") then 
-      --if buffId == abilityId then 
-        --d(GetGameTimeMilliseconds() ) 
-        --d("BannerStart at "..tostring(time*1000))
-        hasBanner = true
-        BannerStart = time*1000
-        Banner.label:SetHidden(false)
-      end
-    end  
-    if not hasBanner then 
-      Banner.label:SetHidden(true)
-    end
-  end)
-
-  EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, OnCruxChange)
-  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
-  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
-
-  EM:RegisterForEvent(idECT, EVENT_PLAYER_ACTIVATED, OnPlayerActivated)
-
-  Lib.RegisterCombatStart( OnCombatStart )
-  Lib.RegisterCombatEnd( OnCombatEnd ) 
-
-  ApplySettings() 
-  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
-    HideAllGui()
+function Update:Start() 
+  if not self.isRunning then 
+    EM:RegisterForUpdate() 
   end
+  self.isRunning = true; 
+end
+
+
+function Update:Stop() 
+  if self.isRunning then 
+    EM:UnregisterForUpdate() 
+  end 
+  self.isRunning = false;
+end
+
+
+--[[ ------------------------------- ]]
+--[[ -- Activate/Deactivate Addon -- ]]
+--[[ --   based on Skill-Lines    -- ]]
+--[[ ------------------------------- ]]
+
+local isAwake = false 
+
+
+local function ManageEvents( deactivateAll ) 
+ 
   
+
 end
 
-local function DeactivateAddon() 
 
-  isActive = false
+local function WakeUp() 
+  if isAwake then return end    -- cant get any more awake
+  
+  -- Update:Start() if any feature that requires an unpdate is active, start the update 
 
-  EM:UnregisterForUpdate(idECT) 
-  EM:UnregisterForUpdate(idECT.."bannercrux")
-  EM:UnregisterForEvent(idECT, EVENT_EFFECT_CHANGED) 
-  EM:UnregisterForEvent(idECT, EVENT_PLAYER_ACTIVATED) 
-
-  Lib.UnregisterCombatStart( OnCombatStart )
-  Lib.UnregisterCombatEnd( OnCombatEnd )
-  HideAllGui()
+  -- check settings and apply them 
+  -- register events 
+  -- initial check of crux 
+  isAwake = true
 end
+
+local function GoToSleep() 
+  if not isAwake then return end  -- dont need to poke a sleeping bear
+  -- unregister all events / updates 
+  -- hide ui 
+  CruxTracker:SetCruxAmount(0) 
+  Update:Stop() 
+
+  isAwake = false
+end
+
+
+
+
+local function CheckSkillLines() 
+  hasArcanistSkillLine = false 
+  for i=1,3 do
+		if SKILLS_DATA_MANAGER:GetActiveClassSkillLine(i):GetClassId() == arcanistId then hasArcanistSkillLine = true end 
+	end
+
+  if hasArcanistSkillLine then 
+    WakeUp()
+  else 
+    GoToSleep() 
+  end
+  d("ECT - Skill lines checked")
+end
+
+
+
+
+
+
+
+
+
+--[[ --------------------------------------- ]]
+--[[ -- Initialization, Profiles and Menu -- ]]
+--[[ --------------------------------------- ]]
+
+local function GetMenuControls() 
+  local controls = {}
+    table.insert( controls, {
+    type = "button", 
+    name = "Unlock/Lock"
+  })
+  table.insert( controls, {
+    type = "button", 
+    name = "Demo"
+  })
+  -- Visibility 
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_HIDE_WHEN_ZERO_CRUX,
+    getFunc = function() return SV.p.hideWhenZeroCrux end,
+    setFunc = function(bool) 
+        SV.p.hideWhenZeroCrux = bool
+      end
+  })
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_SHOW_ALWAYS_IN_COMBAT,
+    getFunc = function() return SV.p.showAlwaysInCombat end,
+    setFunc = function(bool) 
+        SV.p.showAlwaysInCombat = bool
+      end
+  })
+  -- Submenus
+  table.insert(controls, GetSymbolicTrackerMenuControls() ) 
+
+  return controls 
+end
+
+
+local function OnProfilChange() 
+
+end
+
+
+local function ProfileDefaults() 
+  return {
+    showAlwaysInCombat = true, 
+    hideWhenZeroCrux = true, 
+    symbolic = GetSymbolicTrackerSettingDefaults(),
+    number = {
+      enabled = true,
+    },
+    audioCue = {
+      oneCrux = { 
+        sound = 1,
+        volumne = 1,  
+      },
+      twoCrux = {
+        sound = 1,
+        volume = 1,
+      },
+      threeCrux = {
+        sound = 1,
+        volume = 1,
+      }, 
+      cruxConsum = {
+        sound = 1, 
+        volume = 1, 
+      },
+      cruxOverstack = {
+        sound = 1, 
+        volume = 1,
+      }
+    }
+  }
+end
+
+
 
 
 
 local function Initialize()
   -- x,y, snapToMiddle, locked, showOutsideCombat, 
-
-  SV = ZO_SavedVars:NewAccountWide("ExoYsCruxTrackerSavedVariables", 1, nil, GetDefaults() )
-
-  InitializeMenu() 
-
-  Numeric = InitializeNumeric() 
-  Graphic = InitializeGraphic() 
-  Display = InitializeStatistics()
-  Timer = InitializeTimer()
-  --Armor = InitializeCdUi(Graphic, 'armor')
-  Banner = InitializeBannerUi()
-  ApplySettings() 
-
-  BannerStart = GetGameTimeMilliseconds() 
-
-  if not Lib.IsInCombat() and SV.hideOutsideCombat then 
-    HideAllGui()
-  end
-
   
+  local isLocked = true
 
-  local function CheckForArc() 
-    if HasArcanistSkills() then 
-      if not isActive then ActivateAddon() end
-    else 
-      if isActive then DeactivateAddon() end
-    end
-  end
+  ---[[ Saved Variables ]]
+  local SavedVariablesParameter = {
+    svName = "ExoYsCruxTrackerSavedVariables", 
+    version = 1, 
+    globalDefaults = {}, 
+    profileDefaults = ProfileDefaults(), 
+    dialogTitle = "ExoYs Crux Tracker", 
+    callbacks = { OnProfileChange }, 
+  }
+  local profileMenu = nil
+  SV, GetProfileSubmenu = LibExoY.LoadSavedVariables( SavedVariablesParameter )   
 
-  EM:RegisterForUpdate(idECT.."subclassCheck", 3000, CheckForArc) 
+  ---[[ Addon Menu ]]
+  local SettingsMenuParameter = {
+      name = idECT,
+      displayName = nameECT,
+      version = versionECT,
+      esoui = "info3619-ExoYsCruxTracker.html",
+      profiles = GetProfileSubmenu(), 
+      controls = GetMenuControls(),  
+  } 
+  LibExoY.CreateSettingsMenu( SettingsMenuParameter ) 
+
+  Gui.symbolic = InitializeSymbolicTracker() 
+
+  EM:RegisterForEvent(idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED, function() 
+      cruxDuration = GetAbilityDuration( cruxId )  
+      CheckSkillLines() -- check at character login 
+      EM:UnregisterForEvent( idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED )
+    end )
+  EM:RegisterForEvent(idECT.."SkillsUpdated", EVENT_SKILLS_FULL_UPDATE, CheckSkillLines)
+
+
+
+  EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, function(_, changeType, _, _, _, _, _, stackCount) CruxTracker:OnCruxChange( changeType, stackCount) end )
+  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
+  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
+
+
 end
 
 
@@ -1039,3 +622,8 @@ local function OnAddonLoaded(_, addonName)
   end
 end
 EM:RegisterForEvent(idECT, EVENT_ADD_ON_LOADED, OnAddonLoaded)
+
+
+SLASH_COMMANDS["/ect"] = function(  )
+
+end
