@@ -1,5 +1,5 @@
 ECT_SETTING_SIZE = "Size"
-ECT_SETTING_ENABLE = "Enabled"
+ECT_SETTING_ENABLED = "Enabled"
 
 ECT_SETTING_DESIGN = "Design"
 
@@ -19,7 +19,7 @@ ECT_SETTING_SYMBOLIC_COLOR_FIRST = "First Crux"
 ECT_SETTING_SYMBOLIC_COLOR_SECOND = "Second Crux"
 ECT_SETTING_SYMBOLIC_COLOR_THIRD = "Third Crux"
 
-
+ECT_SETTING_ICON = "Icon"
 ECT_SETTING_LAYOUT = "Layout"
 
 ECT_SETTING_LAYOUT_LEFT = "Expand left"
@@ -38,3 +38,20 @@ ECT_AUDIO_CUE_WASTE_CRUX = "Waste Crux"
 
 ECT_SETTING_UNLOCK_UI = "Unlock UI (show all UI-elements)"
 
+ECT_SETTING_INDICATOR = "Indicator"
+ECT_SETTING_DISPLAY_ZERO = "Outputs Zero" 
+ECT_SETTING_FONT = "Font"
+
+ECT_CRUX_ZERO = "Zero Crux"
+ECT_CRUX_ONE = "One Crux" 
+ECT_CRUX_TWO = "Two Crux" 
+ECT_CRUX_THREE = "Three Crux"
+
+ECT_SETTING_NUMERIC_TRACKER = "Numeric Tracker"
+ECT_SETTING_COLORED_EDGE = "Colored Edge"
+
+ECT_SETTING_ICON_ALPHA = "Icon Alpha"
+ECT_SETTING_ICON_DESA = "Icon Desaturation"
+ECT_SETTING_BACK_ALPHA = "Background Alpha"
+
+ECT_SETTING_ADVANCED_DESIGN = "Advanced Design"

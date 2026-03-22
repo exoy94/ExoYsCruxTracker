@@ -40,26 +40,38 @@ end
 local function HideGui( )
   Debug("HideGui") 
   Gui.symbolic.SetScenes( false ) 
+  Gui.numeric.SetScenes( false ) 
 end 
 
 
 local function ShowGui( showAll )
   Debug("ShowGui") 
   Gui.symbolic.SetScenes( showAll or SV.p.symbolic.enabled ) 
+  Gui.numeric.SetScenes( showAll or SV.p.numeric.enabled )
 end
 
 
 local function SetDemoMode( runDemo ) 
   Gui.symbolic.SetDemoMode( runDemo ) 
+  Gui.numeric.SetDemoMode( runDemo ) 
 end
 
 
 function SetVisibility() 
+  Debug("Set Visibility")
   if uiIsUnlocked then ShowGui( true ) return end 
   if addonIsSleeping then HideGui() return end 
   if CruxTracker.hasCrux then ShowGui() return end
   if LibExoY.isInCombat and SV.p.showAlwaysInCombat then ShowGui() return end 
-  if not CruxTracker.hasCrux and SV.p.hideWhenNoCrux then HideGui() return end 
+  if not CruxTracker.hasCrux then 
+    if SV.p.hideWhenNoCrux then 
+      HideGui() 
+      return 
+    else 
+      ShowGui()
+      return
+    end 
+  end
 end
 
 
@@ -86,7 +98,7 @@ local audioCueList = {
   [2] = {id = "twoCrux", name = ECT_AUDIO_CUE_TWO_CRUX, defaultSound = 2}, 
   [3] = {id = "threeCrux", name = ECT_AUDIO_CUE_THREE_CRUX, defaultSound = 3}, 
   [4] = {id = "wasteCrux", name = ECT_AUDIO_CUE_WASTE_CRUX, defaultSound = 4}, 
-  [5] = {id = "consumeCrux", name = ECT_AUDIO_CUE_ZERO_CRUX, defaultSound = 5}, 
+  --[5] = {id = "consumeCrux", name = ECT_AUDIO_CUE_ZERO_CRUX, defaultSound = 5}, 
 }
 
 local function GetAudioCueDefaults() 
@@ -123,7 +135,7 @@ local function GetAudioCueMenuControls()
     })
     table.insert( controls, {
       type = "checkbox", 
-      name = ECT_SETTING_ENABLE, 
+      name = ECT_SETTING_ENABLED, 
       getFunc = function() return SV.p.audioCue[cueInfo.id].enabled end, 
       setFunc = function(bool) 
         SV.p.audioCue[cueInfo.id].enabled = bool
@@ -177,12 +189,12 @@ local function GetSymbolicTrackerSettingDefaults()
     posY = 600,
     layout = 2, 
     spacing = 1, 
-    size = 1,
+    size = 24,
   }
 end
 
 local function InitializeSymbolicTracker() 
-  local name = idECT.."SymbolicIndicator"
+  local name = idECT.."SymbolicTracker"
 
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
@@ -318,10 +330,11 @@ local function GetSymbolicTrackerMenuControls()
   local controls = {} 
   table.insert( controls, {
     type = "checkbox", 
-    name = ECT_SETTING_ENABLE, 
+    name = ECT_SETTING_ENABLED, 
     getFunc = function() return SV.p.symbolic.enabled end, 
     setFunc = function(bool) 
       SV.p.symbolic.enabled = bool
+      SetVisibility() 
     end,
   })
     table.insert( controls, {
@@ -377,7 +390,328 @@ local function GetSymbolicTrackerMenuControls()
   })
   return {
     type = "submenu", 
-    name = LibExoY.AddIconToString(ECT_SETTING_SYMBOLIC_TRACKER, "esoui/art/icons/ability_arcanist_010.dds", 36, "front"),
+    name = LibExoY.AddIconToString(ECT_SETTING_SYMBOLIC_TRACKER, "esoui/art/icons/class_buff_arcanist_crux.dds", 36, "front"),
+    controls = controls, 
+  }
+end
+
+
+
+--[[ --------------------- ]]
+--[[ -- Numeric Tracker -- ]]
+--[[ --------------------- ]]
+
+local function GetNumericTrackerSettingDefaults() 
+  return {
+    enabled = true,
+    posX = 600, 
+    posY = 600, 
+    color = {
+      [1] = {0.8,0.05,0.05,1}, -- no crux 
+      [2] = {0.9,0.5,0.1,1}, -- one crux 
+      [3] = {1,1,0,1}, -- two crux
+      [4] = {0,1,0,1,} -- three crux 
+    },
+    font = 1, 
+    size = 24, 
+    displayZero = false, 
+    design = {
+      iconEnabled = true, 
+      iconAlpha = 0.3, 
+      iconDesaturation = 0.5, 
+      backgroundAlpha = 0.2, 
+      coloredEdgeEnabled = true, 
+      coloredEdgeSize = 4,  
+    },
+  }
+end
+
+local function InitializeNumericTracker() 
+  local name = idECT.."NumericTracker"
+
+  --- hardcoded dimensions 
+  local edgeLine = 2
+
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.numeric.posX, SV.p.numeric.posY)
+  win:SetMouseEnabled(true) 
+  win:SetMovable(true)
+  win:SetClampedToScreen(true) 
+  win:SetDimensions( 50,50 )
+  win:SetHidden(true)  
+  win:SetHandler( "OnMoveStop", function() 
+    SV.p.numeric.posX = win:GetLeft() 
+    SV.p.numeric.posY = win:GetTop()
+  end)
+
+local frag = ZO_HUDFadeSceneFragment:New( win ) 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+local isShowing = false
+  local function SetScenes( showUi )
+    if true then return end 
+    if isShowing == showUi then return end 
+    if showUi then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+    isShowing = showUi
+  end 
+
+  local ctrl = WM:CreateControl( name.."_Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors() 
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0) 
+
+  local coloredEdge = WM:CreateControl( name.."ColoredEdge", ctrl, CT_BACKDROP)
+  coloredEdge:ClearAnchors() 
+  coloredEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  coloredEdge:SetCenterColor(0,0,0,0)
+  
+  local outerEdge = WM:CreateControl( name.."OuterEdge", ctrl, CT_BACKDROP) 
+  outerEdge:ClearAnchors() 
+  outerEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  outerEdge:SetCenterColor(0,0,0,0)
+  outerEdge:SetEdgeColor(0,0,0,1)
+
+  local back = WM:CreateControl( name.."_Back", ctrl, CT_BACKDROP)
+  back:ClearAnchors() 
+  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  back:SetCenterColor(0,0,0)
+  back:SetEdgeColor(0,0,0,1)
+  back:SetEdgeTexture(nil, edgeLine, edgeLine, backgedgeLineroundEdge) 
+  
+  local icon = WM:CreateControl( name.."_Icon", ctrl, CT_TEXTURE) 
+  icon:ClearAnchors()
+  icon:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
+  icon:SetTexture( "esoui/art/icons/achievement_u46_class_meta_arcanist.dds") 
+  icon:SetColor(1,1,1,0.2)
+  icon:SetDesaturation(0.5) 
+
+  local label = WM:CreateControl( name.."_Label", ctrl, CT_LABEL)   
+  label:ClearAnchors() 
+  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
+  label:SetScale(2)
+
+
+  local function UpdateDesign()
+    --- size
+    local iconSize = 2*SV.p.numeric.size
+    local coloredEdgeSize = 2^SV.p.numeric.design.coloredEdgeSize
+    local edgeSize = SV.p.numeric.design.coloredEdgeEnabled and coloredEdgeSize or 0
+    local totalSize = iconSize + 2*edgeSize + 2*edgeLine
+    
+    win:SetDimensions( totalSize, totalSize )
+    outerEdge:SetDimensions( totalSize, totalSize )
+    coloredEdge:SetDimensions( totalSize, totalSize )
+    back:SetDimensions( 2*edgeLine+iconSize, 2*edgeLine+iconSize )
+    icon:SetDimensions(iconSize, iconSize) 
+    
+    --- label 
+    local fontData = {
+      font = LibExoY.GetFontList()[SV.p.numeric.font], 
+      size = SV.p.numeric.size, 
+      outline = 2, 
+    }
+    label:SetFont( LibExoY.GetFont(fontData) ) 
+
+    --- background
+    back:SetHidden(not SV.p.numeric.design.iconEnabled)
+    back:SetAlpha( SV.p.numeric.design.backgroundAlpha ) 
+    
+    --- edge 
+    outerEdge:SetHidden( not SV.p.numeric.design.coloredEdgeEnabled)
+    coloredEdge:SetHidden( not SV.p.numeric.design.coloredEdgeEnabled)
+    coloredEdge:SetEdgeTexture(nil,coloredEdgeSize,coloredEdgeSize,coloredEdgeSize)
+
+    --- icon 
+    icon:SetHidden( not SV.p.numeric.design.iconEnabled )
+    icon:SetAlpha( SV.p.numeric.design.iconAlpha) 
+    icon:SetDesaturation( SV.p.numeric.design.iconDesaturation)
+  end 
+
+  local function UpdateCrux(crux) 
+    cruxStr = tostring(crux)
+    if crux == 0 and not SV.p.numeric.displayZero then cruxStr = "" end 
+    label:SetText( cruxStr )
+    local r,g,b,a = unpack(SV.p.numeric.color[crux+1])
+    label:SetColor( r,g,b,a )
+    coloredEdge:SetEdgeColor(r,g,b,a)
+  end
+
+
+  local function SetDemoMode() 
+
+  end
+
+  UpdateDesign()
+  return {UpdateDesign = UpdateDesign, UpdateCrux = UpdateCrux, SetScenes = SetScenes, SetDemoMode = SetDemoMode}
+end
+
+
+local function GetNumericTrackerMenuControls() 
+  local controls = {}
+  table.insert(controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.numeric.enabled end, 
+    setFunc = function(bool) 
+      SV.p.nuemric.enabled = bool
+      SetVisibility()
+    end
+  })
+  table.insert( controls, {
+    type = "header", 
+    name = ECT_SETTING_INDICATOR, 
+    width = "full", 
+  })
+  table.insert( controls, {
+    type = "dropdown", 
+    name = ECT_SETTING_FONT, 
+    choices = LibExoY.GetFontList(), 
+    getFunc = function() return LibExoY.GetFontList()[SV.p.numeric.font] end, 
+    setFunc = function( selection ) 
+      for idx, font in ipairs(LibExoY.GetFontList() ) do 
+        if selection == font then 
+          SV.p.numeric.font = idx
+          break 
+        end
+      end
+      Gui.numeric.UpdateDesign() 
+    end,
+  })
+  table.insert( controls, {
+    type = "slider", 
+    name = ECT_SETTING_SIZE, 
+    min = 10, 
+    max = 80, 
+    step = 2, 
+    getFunc = function() return SV.p.numeric.size end, 
+    setFunc = function( size ) 
+      SV.p.numeric.size = size 
+      Gui.numeric.UpdateDesign() 
+    end
+  })
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_DISPLAY_ZERO, 
+    getFunc = function() return SV.p.numeric.displayZero end,
+    setFunc = function(bool) 
+      SV.p.numeric.displayZero = bool 
+      Gui.numeric.UpdateCrux( CruxTracker.previousCrux )
+    end,
+    })
+  table.insert(controls, {type = "divider"})
+  labelList = {ECT_CRUX_ZERO, ECT_CRUX_ONE, ECT_CRUX_TWO, ECT_CRUX_THREE} 
+  for idx, label in ipairs(labelList) do 
+    table.insert( controls, {
+      type = "colorpicker", 
+      name = "Color "..label, 
+      getFunc = function() return unpack(SV.p.numeric.color[idx]) end, 
+      setFunc = function(r,g,b,a)
+        SV.p.numeric.color[idx] = {r,g,b,a} 
+      end, 
+      width = "half", 
+    })
+  end
+
+  local advancedDesignControls = {} 
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_ICON, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.numeric.design.iconEnabled end, 
+    setFunc = function(bool)
+      SV.p.numeric.design.iconEnabled = bool
+      Gui.numeric.UpdateDesign()
+    end, 
+    width = "half"
+  })
+
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_BACK_ALPHA, 
+    getFunc = function() return SV.p.numeric.design.backgroundAlpha end, 
+    setFunc = function(value) 
+      SV.p.numeric.design.backgroundAlpha = value
+      Gui.numeric.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_DESA, 
+    getFunc = function() return SV.p.numeric.design.iconDesaturation end, 
+    setFunc = function(value) 
+      SV.p.numeric.design.iconDesaturation = value
+      Gui.numeric.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_ALPHA, 
+    getFunc = function() return SV.p.numeric.design.iconAlpha end, 
+    setFunc = function(value) 
+      SV.p.numeric.design.iconAlpha = value
+      Gui.numeric.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_COLORED_EDGE, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.numeric.design.coloredEdgeEnabled end, 
+    setFunc = function(bool)
+      SV.p.numeric.design.coloredEdgeEnabled = bool
+      Gui.numeric.UpdateDesign()
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 1, 
+    max = 4, 
+    step = 1, 
+    name = ECT_SETTING_SIZE, 
+    getFunc = function() return SV.p.numeric.design.coloredEdgeSize end, 
+    setFunc = function(value) 
+      SV.p.numeric.design.coloredEdgeSize = value
+      Gui.numeric.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, {type="divider"})
+
+  table.insert(controls, {
+    type = "submenu", 
+    name = ECT_SETTING_ADVANCED_DESIGN, 
+    controls = advancedDesignControls,
+  })
+  return {
+    type = "submenu", 
+    name = LibExoY.AddIconToString(ECT_SETTING_NUMERIC_TRACKER, "esoui/art/icons/ability_arcanist_001_blue.dds", 36, "front"),
     controls = controls, 
   }
 end
@@ -388,7 +722,7 @@ end
 --[[ ------------------ ]]
 
 CruxTracker.hasCrux = false
-CruxTracker.maxCrux = false
+CruxTracker.previousCrux = 0
 
 function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
   self.endTimeCrux = endTimeCrux or GetGameTimeSeconds() + cruxDuration/1000
@@ -396,8 +730,10 @@ function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
   if currentCrux == 0 then  --- crux consumed/expired 
     self.hasCrux = false 
     SetVisibility()
-    PlayAudioCue("consumeCrux")
+    --PlayAudioCue("consumeCrux")
     Gui.symbolic.UpdateCrux( currentCrux )
+    Gui.numeric.UpdateCrux( currentCrux )
+    Debug("SetCruxInfo: Crux = 0")
 
   elseif  currentCrux == self.previousCrux then   --- crux wasted
     PlayAudioCue("wasteCrux")
@@ -406,6 +742,7 @@ function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
   else  --- crux generated
     self.hasCrux = true
     Gui.symbolic.UpdateCrux( currentCrux )
+    Gui.numeric.UpdateCrux( currentCrux ) 
     PlayAudioCue( audioCueList[currentCrux].id )
     if currentCrux == 1 then SetVisibility() end
   end
@@ -415,14 +752,18 @@ end
 
 
 function CruxTracker:ReadCharacterInfo() 
+  local hasCrux = false
+  local cruxAmount = 0
+  local cruxEndTIme = 0  
   for i=1,GetNumBuffs("player") do
     local _,_,endTime,_,stackCount,_,_,_,_,_,abilityId = GetUnitBuffInfo("player", i)
     if abilityId == cruxId then 
-      self:SetCruxInfo(stackCount, endTime) 
+        cruxAmount = stackCount
+        cruxEndTIme = endTime
       break 
     end 
   end  
-
+  self:SetCruxInfo(cruxAmount, cruxEndTIme) 
 
 end
 
@@ -471,7 +812,7 @@ end
 
 local function WakeUp() 
   if not addonIsSleeping then return end    -- cant get any more awake
-  Debug("Waking up!")
+  Debug("Sensing Hermaeus Mora's Aura (Waking up)")
   addonIsSleeping = false 
   CruxTracker:ReadCharacterInfo() 
   SetVisibility()
@@ -485,7 +826,7 @@ end
 
 local function GoToSleep() 
   if addonIsSleeping then return end  -- dont need to poke a sleeping bear
-  Debug("Going to sleep!")
+  Debug("There is no knowledge in the void (Going to sleep)")
   addonIsSleeping = true 
   SetVisibility()
   --CruxTracker:SetCruxAmount(0) 
@@ -530,9 +871,10 @@ local function GetMenuControls()
   table.insert( controls, {
     type = "checkbox", 
     name = ECT_SETTING_HIDE_WHEN_ZERO_CRUX,
-    getFunc = function() return SV.p.hideWhenZeroCrux end,
+    getFunc = function() return SV.p.hideWhenNoCrux end,
     setFunc = function(bool) 
-        SV.p.hideWhenZeroCrux = bool
+        SV.p.hideWhenNoCrux = bool
+        SetVisibility()
       end
   })
   table.insert( controls, {
@@ -541,9 +883,11 @@ local function GetMenuControls()
     getFunc = function() return SV.p.showAlwaysInCombat end,
     setFunc = function(bool) 
         SV.p.showAlwaysInCombat = bool
+        SetVisibility()
       end
   })
   -- Submenus
+  table.insert(controls, GetNumericTrackerMenuControls() )
   table.insert(controls, GetSymbolicTrackerMenuControls() ) 
   table.insert(controls, GetAudioCueMenuControls() )
   return controls 
@@ -562,9 +906,7 @@ local function ProfileDefaults()
     hideWhenNoCrux = true, 
     symbolic = GetSymbolicTrackerSettingDefaults(),
     audioCue = GetAudioCueDefaults(), 
-    number = {
-      enabled = true,
-    },
+    numeric = GetNumericTrackerSettingDefaults()
   }
 end
 
@@ -595,9 +937,8 @@ local function Initialize()
   LibExoY.CreateSettingsMenu( SettingsMenuParameter ) 
 
   Gui.symbolic = InitializeSymbolicTracker() 
+  Gui.numeric = InitializeNumericTracker() 
   
-  LibExoY.Debug("test", {"ECT", "green"}, SV.g.showDebug) 
-
   LibExoY.RegisterCombatStart( function() SetVisibility() end )
   LibExoY.RegisterCombatEnd( function() SetVisibility() end )
   EM:RegisterForEvent(idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED, function() 
@@ -631,4 +972,10 @@ SLASH_COMMANDS["/ectdebug"] = function( )
   SV.g.showDebug = not SV.g.showDebug
   local debugStr = zo_strformat("Debug > <<1>>ctivated < ", SV.g.showDebug and "A" or "De-a" ) 
   LibExoY.Debug(debugStr, {"ECT", "green"}) 
+end
+
+SLASH_COMMANDS["/ect"] = function( )
+  d(CruxTracker)
+  d("---")
+  d(SV.p)
 end
