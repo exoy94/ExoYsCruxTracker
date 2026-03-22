@@ -29,18 +29,28 @@ local Update = {}
 local uiIsUnlocked = false 
 local addonIsSleeping = true 
 
+local function Debug(str) 
+  LibExoY.Debug(str, {"ECT", "green"}, SV.g.showDebug)  
+end
 
 --[[ ---------------- ]]
 --[[ -- Visibility -- ]]
 --[[ ---------------- ]]
 
-local function HideGui( ) 
-  Giu.symbolic.SetScenes( false ) 
+local function HideGui( )
+  Debug("HideGui") 
+  Gui.symbolic.SetScenes( false ) 
 end 
 
 
 local function ShowGui( showAll )
+  Debug("ShowGui") 
   Gui.symbolic.SetScenes( showAll or SV.p.symbolic.enabled ) 
+end
+
+
+local function SetDemoMode( runDemo ) 
+  Gui.symbolic.SetDemoMode( runDemo ) 
 end
 
 
@@ -48,11 +58,9 @@ function SetVisibility()
   if uiIsUnlocked then ShowGui( true ) return end 
   if addonIsSleeping then HideGui() return end 
   if CruxTracker.hasCrux then ShowGui() return end
-  if LibExoY.isInCombat inCombat and SV.p.showAlwaysInCombat then ShowGui() return end 
+  if LibExoY.isInCombat and SV.p.showAlwaysInCombat then ShowGui() return end 
   if not CruxTracker.hasCrux and SV.p.hideWhenNoCrux then HideGui() return end 
 end
-
-
 
 
 --[[ ---------------- ]]
@@ -103,7 +111,6 @@ local function PlayAudioCue( cueId, overwrite )
       PlaySound(SOUNDS[soundSelection[setting.sound]])
     end
   end 
-  d("playing")
 end
 
 
@@ -184,14 +191,17 @@ local function InitializeSymbolicTracker()
   win:SetMovable(true)
   win:SetClampedToScreen(true) 
   win:SetDimensions( 50,50 )
-  win:SetHidden(false)  --@ToDo
+  win:SetHidden(true)  
   win:SetHandler( "OnMoveStop", function() 
     SV.p.symbolic.posX = win:GetLeft() 
     SV.p.symbolic.posY = win:GetTop()
   end)
 
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
+  local isShowing = false
   local function SetScenes( showUi )
+    if isShowing == showUi then return end 
+    Debug("Symbolic Tracker - Scene Update")
     if showUi then 
       HUD_UI_SCENE:AddFragment( frag )
       HUD_SCENE:AddFragment( frag )
@@ -199,6 +209,7 @@ local function InitializeSymbolicTracker()
       HUD_UI_SCENE:RemoveFragment( frag )
       HUD_SCENE:RemoveFragment( frag )
     end
+    isShowing = showUi
   end 
 
   local symbols = {}
@@ -291,12 +302,16 @@ local function InitializeSymbolicTracker()
 
   end
 
+  local function SetDemoMode( runDemo ) 
+
+  end
+
   -- initialize current settings
   symbols[1].ctrl:ClearAnchors() 
   symbols[1].ctrl:SetAnchor(CENTER, win, CENTER, 0, 0) 
   UpdateLayout()
 
-  return {UpdateLayout = UpdateLayout, UpdateCrux = UpdateCrux, SetScenes = SetScenes}
+  return {UpdateLayout = UpdateLayout, UpdateCrux = UpdateCrux, SetScenes = SetScenes, SetDemoMode = SetDemoMode}
 end -- of "InitializeSymbolicTracker"
 
 local function GetSymbolicTrackerMenuControls()
@@ -368,65 +383,6 @@ local function GetSymbolicTrackerMenuControls()
 end
 
 
-
-
-
-
---[[ ------------- ]]
---[[ -- Visuals -- ]]
---[[ ------------- ]]
-
-
-
-
-
-local function ApplySettings() 
-  local fontList = Lib.GetFontList() 
-
-  Numeric.DefineFragmentScenes(SV.numeric.enabled)
-
-  Numeric.label:SetFont( Lib.GetFont({font=fontList[SV.numeric.font], size = SV.numeric.size, outline=2}) ) 
-  local numericHeight = Numeric.label:GetTextHeight() 
-  local numericWidth = Numeric.label:GetTextWidth() 
-  Numeric.win:SetDimensions(2*numericWidth, 2*numericHeight)
-
-  Timer.DefineFragmentScenes(SV.timer.enabled)
-  Timer.label:SetFont( Lib.GetFont({font=fontList[SV.timer.font], size = SV.timer.size, outline=2}) )
-  Timer.label:SetText("0s")
-  local timerHeight = Timer.label:GetTextHeight() 
-  local timerWidth = Timer.label:GetTextWidth() 
-  Timer.win:SetDimensions(2*timerWidth, 2*timerHeight)
-  Timer.label:SetColor(unpack(SV.timer.color))
-
-  Graphic.DefineFragmentScenes(SV.graphical.enabled)
-  Graphic.indicator.ApplyDistance(SV.graphical.distance, SV.graphical.size)
-  Graphic.indicator.ApplySize(SV.graphical.size)
-
-  Display.DefineFragmentScenes(SV.stats.display.enabled)
-
-  
-
-  Numeric.win:SetMovable(not SV.locked) 
-  Graphic.win:SetMovable(not SV.locked) 
-  Display.win:SetMovable(not SV.locked)
-  Timer.win:SetMovable(not SV.locked)
-
-end
-
-local function HideAllGui() 
-  Numeric.DefineFragmentScenes(false)
-  Timer.DefineFragmentScenes(false)
-  Graphic.DefineFragmentScenes(false)
-  Banner.DefineFragmentScenes(false) 
-end
-
-
---[[ ------------ ]]
---[[ -- Events -- ]]
---[[ ------------ ]]
-
-
-
 --[[ ------------------ ]]
 --[[ -- Crux Tracker -- ]]
 --[[ ------------------ ]]
@@ -439,6 +395,7 @@ function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
 
   if currentCrux == 0 then  --- crux consumed/expired 
     self.hasCrux = false 
+    SetVisibility()
     PlayAudioCue("consumeCrux")
     Gui.symbolic.UpdateCrux( currentCrux )
 
@@ -450,6 +407,7 @@ function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
     self.hasCrux = true
     Gui.symbolic.UpdateCrux( currentCrux )
     PlayAudioCue( audioCueList[currentCrux].id )
+    if currentCrux == 1 then SetVisibility() end
   end
 
   self.previousCrux = currentCrux 
@@ -513,33 +471,26 @@ end
 
 local function WakeUp() 
   if not addonIsSleeping then return end    -- cant get any more awake
+  Debug("Waking up!")
   addonIsSleeping = false 
+  CruxTracker:ReadCharacterInfo() 
+  SetVisibility()
   -- Update:Start() if any feature that requires an unpdate is active, start the update 
 
   -- check settings and apply them 
   -- register events 
   -- initial check of crux 
 
- 
 end
 
 local function GoToSleep() 
   if addonIsSleeping then return end  -- dont need to poke a sleeping bear
+  Debug("Going to sleep!")
   addonIsSleeping = true 
-
-
-
-  -- unregister all events / updates 
-  -- hide ui 
-
-
-
-  CruxTracker:SetCruxAmount(0) 
-  Update:Stop() 
-
+  SetVisibility()
+  --CruxTracker:SetCruxAmount(0) 
+  --Update:Stop() 
 end
-
-
 
 
 local function CheckSkillLines() 
@@ -556,13 +507,6 @@ local function CheckSkillLines()
 end
 
 
-
-
-
-
-
-
-
 --[[ --------------------------------------- ]]
 --[[ -- Initialization, Profiles and Menu -- ]]
 --[[ --------------------------------------- ]]
@@ -575,6 +519,7 @@ local function GetMenuControls()
     getFunc = function() return uiIsUnlocked end, 
     setFunc = function(bool) 
       uiIsUnlocked = bool 
+      SetDemoMode( bool )
       SetVisibility()
     end, 
   })
@@ -630,7 +575,7 @@ local function Initialize()
   local SavedVariablesParameter = {
     svName = "ExoYsCruxTrackerSavedVariables", 
     version = 1, 
-    globalDefaults = {}, 
+    globalDefaults = { showDebug = false }, 
     profileDefaults = ProfileDefaults(), 
     dialogTitle = "ExoYs Crux Tracker", 
     callbacks = { OnProfileChange }, 
@@ -651,9 +596,10 @@ local function Initialize()
 
   Gui.symbolic = InitializeSymbolicTracker() 
   
+  LibExoY.Debug("test", {"ECT", "green"}, SV.g.showDebug) 
+
   LibExoY.RegisterCombatStart( function() SetVisibility() end )
   LibExoY.RegisterCombatEnd( function() SetVisibility() end )
-
   EM:RegisterForEvent(idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED, function() 
       CheckSkillLines() 
       EM:UnregisterForEvent( idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED )
@@ -669,8 +615,6 @@ local function Initialize()
   end )
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
-
-
 end
 
 
@@ -683,6 +627,8 @@ end
 EM:RegisterForEvent(idECT, EVENT_ADD_ON_LOADED, OnAddonLoaded)
 
 
-SLASH_COMMANDS["/ect"] = function(  )
-
+SLASH_COMMANDS["/ectdebug"] = function( )
+  SV.g.showDebug = not SV.g.showDebug
+  local debugStr = zo_strformat("Debug > <<1>>ctivated < ", SV.g.showDebug and "A" or "De-a" ) 
+  LibExoY.Debug(debugStr, {"ECT", "green"}) 
 end
