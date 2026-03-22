@@ -27,7 +27,7 @@ ECT_SETTING_LAYOUT_RIGHT = "Expand right"
 ECT_SETTING_LAYOUT_UP = "Expand up"
 ECT_SETTING_LAYOUT_DOWN = "Expand down"
 
-ECT_SETTING_AUDIO_CUE = "Audio Cue"
+ECT_SETTING_AUDIO_CUE = "Audio Cues"
 ECT_SETTING_SOUND = "Sound"
 ECT_SETTING_VOLUME = "Volume"
 ECT_AUDIO_CUE_ZERO_CRUX = "Zero Crux"
@@ -55,3 +55,5 @@ ECT_SETTING_ICON_DESA = "Icon Desaturation"
 ECT_SETTING_BACK_ALPHA = "Background Alpha"
 
 ECT_SETTING_ADVANCED_DESIGN = "Advanced Design"
+
+ECT_SETTING_CRUX_TIMER = "Crux Experation Timer"

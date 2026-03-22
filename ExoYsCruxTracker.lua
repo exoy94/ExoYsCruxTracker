@@ -41,6 +41,7 @@ local function HideGui( )
   Debug("HideGui") 
   Gui.symbolic.SetScenes( false ) 
   Gui.numeric.SetScenes( false ) 
+  Gui.timer.SetScenes( false ) 
 end 
 
 
@@ -48,12 +49,14 @@ local function ShowGui( showAll )
   Debug("ShowGui") 
   Gui.symbolic.SetScenes( showAll or SV.p.symbolic.enabled ) 
   Gui.numeric.SetScenes( showAll or SV.p.numeric.enabled )
+  Gui.timer.SetScenes( showAll or SV.p.timer.enabled)
 end
 
 
 local function SetDemoMode( runDemo ) 
   Gui.symbolic.SetDemoMode( runDemo ) 
   Gui.numeric.SetDemoMode( runDemo ) 
+  Gui.timer.SetDemoMode( runDemo ) 
 end
 
 
@@ -189,7 +192,7 @@ local function GetSymbolicTrackerSettingDefaults()
     posY = 600,
     layout = 2, 
     spacing = 1, 
-    size = 24,
+    size = 50,
   }
 end
 
@@ -199,15 +202,22 @@ local function InitializeSymbolicTracker()
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
   win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.symbolic.posX, SV.p.symbolic.posY)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
+  win:SetMouseEnabled(false) 
+  win:SetMovable(false)
   win:SetClampedToScreen(true) 
-  win:SetDimensions( 50,50 )
   win:SetHidden(true)  
   win:SetHandler( "OnMoveStop", function() 
     SV.p.symbolic.posX = win:GetLeft() 
     SV.p.symbolic.posY = win:GetTop()
   end)
+
+  local demoBack = WM:CreateControl( name.."DemoBack", win, CT_BACKDROP )
+  demoBack:ClearAnchors()
+  demoBack:SetAnchor(CENTER, win, CENTER, 0, 0) 
+  demoBack:SetHidden(true)
+  demoBack:SetEdgeColor(0,0,0,1) 
+  demoBack:SetEdgeTexture(0,2,2,2) 
+  demoBack:SetCenterColor(0,0,0,0.25)
 
   local frag = ZO_HUDFadeSceneFragment:New( win ) 
   local isShowing = false
@@ -301,6 +311,8 @@ local function InitializeSymbolicTracker()
     for _, symbol in ipairs(symbols) do 
       symbol.ChangeSize( SV.p.symbolic.size ) 
     end
+    win:SetDimensions( 1.2*SV.p.symbolic.size, 1.2*SV.p.symbolic.size )
+    demoBack:SetDimensions( 1.2*SV.p.symbolic.size, 1.2*SV.p.symbolic.size ) 
   end
 
   local function UpdateCrux( crux )
@@ -315,7 +327,9 @@ local function InitializeSymbolicTracker()
   end
 
   local function SetDemoMode( runDemo ) 
-
+    win:SetMouseEnabled( runDemo )
+    win:SetMovable( runDemo ) 
+    demoBack:SetHidden( not runDemo ) 
   end
 
   -- initialize current settings
@@ -346,8 +360,8 @@ local function GetSymbolicTrackerMenuControls()
     type = "slider", 
     name = ECT_SETTING_SIZE, 
     min = 20, 
-    max = 80, 
-    step = 2, 
+    max = 200, 
+    step = 5, 
     getFunc = function() return SV.p.symbolic.size end, 
     setFunc = function(value) 
       SV.p.symbolic.size = value
@@ -404,8 +418,8 @@ end
 local function GetNumericTrackerSettingDefaults() 
   return {
     enabled = true,
-    posX = 600, 
-    posY = 600, 
+    posX = 620, 
+    posY = 500, 
     color = {
       [1] = {0.8,0.05,0.05,1}, -- no crux 
       [2] = {0.9,0.5,0.1,1}, -- one crux 
@@ -413,14 +427,14 @@ local function GetNumericTrackerSettingDefaults()
       [4] = {0,1,0,1,} -- three crux 
     },
     font = 1, 
-    size = 24, 
-    displayZero = false, 
+    size = 30, 
+    displayZero = true, 
     design = {
-      iconEnabled = true, 
+      iconEnabled = false, 
       iconAlpha = 0.3, 
       iconDesaturation = 0.5, 
       backgroundAlpha = 0.2, 
-      coloredEdgeEnabled = true, 
+      coloredEdgeEnabled = false, 
       coloredEdgeSize = 4,  
     },
   }
@@ -435,8 +449,8 @@ local function InitializeNumericTracker()
   local win = WM:CreateTopLevelWindow( name.."Window" )
   win:ClearAnchors() 
   win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.numeric.posX, SV.p.numeric.posY)
-  win:SetMouseEnabled(true) 
-  win:SetMovable(true)
+  win:SetMouseEnabled(false) 
+  win:SetMovable(false)
   win:SetClampedToScreen(true) 
   win:SetDimensions( 50,50 )
   win:SetHidden(true)  
@@ -446,11 +460,8 @@ local function InitializeNumericTracker()
   end)
 
 local frag = ZO_HUDFadeSceneFragment:New( win ) 
-      HUD_UI_SCENE:AddFragment( frag )
-      HUD_SCENE:AddFragment( frag )
 local isShowing = false
   local function SetScenes( showUi )
-    if true then return end 
     if isShowing == showUi then return end 
     if showUi then 
       HUD_UI_SCENE:AddFragment( frag )
@@ -545,8 +556,9 @@ local isShowing = false
   end
 
 
-  local function SetDemoMode() 
-
+  local function SetDemoMode( demoMode ) 
+    win:SetMouseEnabled( demoMode ) 
+    win:SetMovable( demoMode )
   end
 
   UpdateDesign()
@@ -702,7 +714,6 @@ local function GetNumericTrackerMenuControls()
     end,
     width = "half", 
   })
-  table.insert(advancedDesignControls, {type="divider"})
 
   table.insert(controls, {
     type = "submenu", 
@@ -716,6 +727,324 @@ local function GetNumericTrackerMenuControls()
   }
 end
 
+--[[ ---------------- ]]
+--[[ -- Crux Timer -- ]]
+--[[ ---------------- ]]
+
+local function GetCruxTimerSettingsDefaults() 
+  return {
+    enabled = true, 
+    threshold = 5, 
+    posX = 700, 
+    posY = 500, 
+    font = 1, 
+    size = 24, 
+    displayZero = false, 
+    colorLong = {0,1,0,1}, 
+    design = {
+      iconEnabled = true, 
+      iconAlpha = 0.3, 
+      iconDesaturation = 0.5, 
+      backgroundAlpha = 0.2, 
+      coloredEdgeEnabled = false, 
+      coloredEdgeSize = 4,  
+    },
+  }
+end
+
+
+local function InitializeCruxTimer() 
+  local name = idECT.."Timer" 
+
+  --- hardcoded dimensions 
+  local edgeLine = 2
+
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.timer.posX, SV.p.timer.posY)
+  win:SetMouseEnabled(false) 
+  win:SetMovable(false)
+  win:SetClampedToScreen(true) 
+  win:SetDimensions( 50,50 )
+  win:SetHidden(true)  
+  win:SetHandler( "OnMoveStop", function() 
+    SV.p.timer.posX = win:GetLeft() 
+    SV.p.timer.posY = win:GetTop()
+  end)
+
+local frag = ZO_HUDFadeSceneFragment:New( win ) 
+local isShowing = false
+  local function SetScenes( showUi )
+    if isShowing == showUi then return end 
+    if showUi then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+    isShowing = showUi
+  end 
+
+  local ctrl = WM:CreateControl( name.."_Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors() 
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0) 
+
+  local coloredEdge = WM:CreateControl( name.."ColoredEdge", ctrl, CT_BACKDROP)
+  coloredEdge:ClearAnchors() 
+  coloredEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  coloredEdge:SetCenterColor(0,0,0,0)
+  
+  local outerEdge = WM:CreateControl( name.."OuterEdge", ctrl, CT_BACKDROP) 
+  outerEdge:ClearAnchors() 
+  outerEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  outerEdge:SetCenterColor(0,0,0,0)
+  outerEdge:SetEdgeColor(0,0,0,1)
+
+  local back = WM:CreateControl( name.."_Back", ctrl, CT_BACKDROP)
+  back:ClearAnchors() 
+  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  back:SetCenterColor(0,0,0)
+  back:SetEdgeColor(0,0,0,1)
+  back:SetEdgeTexture(nil, edgeLine, edgeLine, backgedgeLineroundEdge) 
+  
+  local icon = WM:CreateControl( name.."_Icon", ctrl, CT_TEXTURE) 
+  icon:ClearAnchors()
+  icon:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
+  icon:SetTexture( "esoui/art/icons/u35_dun1_speed_challenge.dds") 
+  icon:SetColor(1,1,1,0.2)
+  icon:SetDesaturation(0.5) 
+
+  local label = WM:CreateControl( name.."_Label", ctrl, CT_LABEL)   
+  label:ClearAnchors() 
+  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
+  label:SetScale(2)
+
+
+  local function UpdateDesign()
+    --- size
+    local iconSize = 3.2*SV.p.timer.size
+    local coloredEdgeSize = 2^SV.p.timer.design.coloredEdgeSize
+    local edgeSize = SV.p.timer.design.coloredEdgeEnabled and coloredEdgeSize or 0
+    local totalSize = iconSize + 2*edgeSize + 2*edgeLine
+    
+    win:SetDimensions( totalSize, totalSize )
+    outerEdge:SetDimensions( totalSize, totalSize )
+    coloredEdge:SetDimensions( totalSize, totalSize )
+    back:SetDimensions( 2*edgeLine+iconSize, 2*edgeLine+iconSize )
+    icon:SetDimensions(iconSize, iconSize) 
+    
+    --- label 
+    local fontData = {
+      font = LibExoY.GetFontList()[SV.p.timer.font], 
+      size = SV.p.timer.size, 
+      outline = 2, 
+    }
+    label:SetFont( LibExoY.GetFont(fontData) ) 
+    label:SetColor( unpack(SV.p.timer.colorLong) )
+
+    --- background
+    back:SetHidden(not SV.p.timer.design.iconEnabled)
+    back:SetAlpha( SV.p.timer.design.backgroundAlpha ) 
+    
+    --- edge 
+    outerEdge:SetHidden( not SV.p.timer.design.coloredEdgeEnabled)
+    coloredEdge:SetHidden( not SV.p.timer.design.coloredEdgeEnabled)
+    coloredEdge:SetEdgeTexture(nil,coloredEdgeSize,coloredEdgeSize,coloredEdgeSize)
+
+    --- icon 
+    icon:SetHidden( not SV.p.timer.design.iconEnabled )
+    icon:SetAlpha( SV.p.timer.design.iconAlpha) 
+    icon:SetDesaturation( SV.p.timer.design.iconDesaturation)
+  end 
+
+  local function UpdateTime() 
+    local endTime = CruxTracker.endTime 
+    local timeRemaining = endTime - GetGameTimeSeconds() 
+    local str = SV.p.timer.displayZero and "0s" or ""
+    if timeRemaining >= 0  then 
+      str = LibExoY.GetCountdownString( timeRemaining, true, false, true)
+    end
+    label:SetText(str) 
+  end
+
+
+  local function SetDemoMode( demoMode ) 
+    win:SetMouseEnabled( demoMode ) 
+    win:SetMovable( demoMode )
+  end
+
+  UpdateDesign()
+  return {UpdateDesign = UpdateDesign, UpdateTime = UpdateTime, SetScenes = SetScenes, SetDemoMode = SetDemoMode}
+end
+
+
+local function GetCruxTimerMenuControls() 
+  local controls = {}
+  table.insert(controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.timer.enabled end, 
+    setFunc = function(bool) 
+      SV.p.timer.enabled = bool 
+      if bool then 
+        Update:AddToList("CruxTimer", Gui.timer.UpdateTime)
+      else 
+        Update:RemoveFromList("CruxTimer")
+      end
+      SetVisibility() 
+    end, 
+  }) 
+
+  table.insert( controls, {
+    type = "header", 
+    name = ECT_SETTING_INDICATOR, 
+    width = "full", 
+  })
+  table.insert( controls, {
+    type = "dropdown", 
+    name = ECT_SETTING_FONT, 
+    choices = LibExoY.GetFontList(), 
+    getFunc = function() return LibExoY.GetFontList()[SV.p.timer.font] end, 
+    setFunc = function( selection ) 
+      for idx, font in ipairs(LibExoY.GetFontList() ) do 
+        if selection == font then 
+          SV.p.timer.font = idx
+          break 
+        end
+      end
+      Gui.timer.UpdateDesign() 
+    end,
+  })
+  table.insert( controls, {
+    type = "slider", 
+    name = ECT_SETTING_SIZE, 
+    min = 10, 
+    max = 80, 
+    step = 2, 
+    getFunc = function() return SV.p.timer.size end, 
+    setFunc = function( size ) 
+      SV.p.timer.size = size 
+      Gui.timer.UpdateDesign() 
+    end
+  })
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_DISPLAY_ZERO, 
+    getFunc = function() return SV.p.timer.displayZero end,
+    setFunc = function(bool) 
+      SV.p.timer.displayZero = bool 
+    end,
+    })
+    table.insert( controls, {
+      type = "colorpicker", 
+      name = ECT_SETTING_COLOR, 
+      getFunc = function() return unpack(SV.p.timer.colorLong) end, 
+      setFunc = function(r,g,b,a)
+        SV.p.timer.colorLong = {r,g,b,a} 
+      end, 
+    })
+
+  local advancedDesignControls = {} 
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_ICON, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.timer.design.iconEnabled end, 
+    setFunc = function(bool)
+      SV.p.timer.design.iconEnabled = bool
+      Gui.timer.UpdateDesign()
+    end, 
+    width = "half"
+  })
+
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_BACK_ALPHA, 
+    getFunc = function() return SV.p.timer.design.backgroundAlpha end, 
+    setFunc = function(value) 
+      SV.p.timer.design.backgroundAlpha = value
+      Gui.timer.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_DESA, 
+    getFunc = function() return SV.p.timer.design.iconDesaturation end, 
+    setFunc = function(value) 
+      SV.p.timer.design.iconDesaturation = value
+      Gui.timer.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_ALPHA, 
+    getFunc = function() return SV.p.timer.design.iconAlpha end, 
+    setFunc = function(value) 
+      SV.p.timer.design.iconAlpha = value
+      Gui.timer.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  --[[
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_COLORED_EDGE, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.timer.design.coloredEdgeEnabled end, 
+    setFunc = function(bool)
+      SV.p.timer.design.coloredEdgeEnabled = bool
+      Gui.timer.UpdateDesign()
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 1, 
+    max = 4, 
+    step = 1, 
+    name = ECT_SETTING_SIZE, 
+    getFunc = function() return SV.p.timer.design.coloredEdgeSize end, 
+    setFunc = function(value) 
+      SV.p.timer.design.coloredEdgeSize = value
+      Gui.timer.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+    ]]
+
+  table.insert(controls, {
+    type = "submenu", 
+    name = ECT_SETTING_ADVANCED_DESIGN, 
+    controls = advancedDesignControls,
+  })
+
+  return {
+    type = "submenu", 
+    name = LibExoY.AddIconToString(ECT_SETTING_CRUX_TIMER, "esoui/art/icons/u35_dun1_speed_challenge.dds", 36, "front"),
+    controls = controls
+  }
+end
+
 
 --[[ ------------------ ]]
 --[[ -- Crux Tracker -- ]]
@@ -725,22 +1054,24 @@ CruxTracker.hasCrux = false
 CruxTracker.previousCrux = 0
 
 function CruxTracker:SetCruxInfo( currentCrux, endTimeCrux )
-  self.endTimeCrux = endTimeCrux or GetGameTimeSeconds() + cruxDuration/1000
 
   if currentCrux == 0 then  --- crux consumed/expired 
     self.hasCrux = false 
+    self.endTime = 0
     SetVisibility()
     --PlayAudioCue("consumeCrux")
     Gui.symbolic.UpdateCrux( currentCrux )
     Gui.numeric.UpdateCrux( currentCrux )
-    Debug("SetCruxInfo: Crux = 0")
+
 
   elseif  currentCrux == self.previousCrux then   --- crux wasted
+    self.endTime = endTimeCrux or GetGameTimeSeconds() + cruxDuration/1000
     PlayAudioCue("wasteCrux")
     -- @idea: visual warning (red flash)
 
   else  --- crux generated
     self.hasCrux = true
+    self.endTime = endTimeCrux or GetGameTimeSeconds() + cruxDuration/1000
     Gui.symbolic.UpdateCrux( currentCrux )
     Gui.numeric.UpdateCrux( currentCrux ) 
     PlayAudioCue( audioCueList[currentCrux].id )
@@ -772,26 +1103,42 @@ end
 --[[ -- Update -- ]]
 --[[ ------------ ]]
 
-
+Update.numCallbacks = 0
+Update.isRunning = false
+Update.callList = {}
 
 local function OnUpdate()   
-
+  for name, callback in pairs(Update.callList) do 
+    callback()
+  end
 end
 
 
-function Update:AddToList() 
+function Update:AddToList( name, callback ) 
+  if self.callList[name] then return end -- entry already exists
+  self.callList[name] = callback
+  self.numCallbacks = self.numCallbacks + 1
 
+  if self.numCallbacks == 1 then 
+    self:Start() 
+  end
 end 
 
 
-function Update:RemoveFromList() 
+function Update:RemoveFromList( name ) 
+  if not self.callList[name] then return end -- entry does not exist
+  self.callList[name] = nil 
+  self.numCallbacks = self.numCallbacks -1 
 
+  if self.numCallbacks == 0 then 
+    self:Stop() 
+  end
 end
 
 
 function Update:Start() 
   if not self.isRunning then 
-    EM:RegisterForUpdate() 
+    EM:RegisterForUpdate(idECT.."Update", 100, OnUpdate) 
   end
   self.isRunning = true; 
 end
@@ -799,7 +1146,7 @@ end
 
 function Update:Stop() 
   if self.isRunning then 
-    EM:UnregisterForUpdate() 
+    EM:UnregisterForUpdate(idECT.."Update") 
   end 
   self.isRunning = false;
 end
@@ -815,13 +1162,8 @@ local function WakeUp()
   Debug("Sensing Hermaeus Mora's Aura (Waking up)")
   addonIsSleeping = false 
   CruxTracker:ReadCharacterInfo() 
+  if SV.p.timer.enabled then Update:AddToList("CruxTimer", Gui.timer.UpdateTime) end
   SetVisibility()
-  -- Update:Start() if any feature that requires an unpdate is active, start the update 
-
-  -- check settings and apply them 
-  -- register events 
-  -- initial check of crux 
-
 end
 
 local function GoToSleep() 
@@ -829,8 +1171,9 @@ local function GoToSleep()
   Debug("There is no knowledge in the void (Going to sleep)")
   addonIsSleeping = true 
   SetVisibility()
-  --CruxTracker:SetCruxAmount(0) 
-  --Update:Stop() 
+  CruxTracker:SetCruxAmount(0,0)
+  Update:Stop() 
+  Update.callList = {} 
 end
 
 
@@ -890,23 +1233,25 @@ local function GetMenuControls()
   table.insert(controls, GetNumericTrackerMenuControls() )
   table.insert(controls, GetSymbolicTrackerMenuControls() ) 
   table.insert(controls, GetAudioCueMenuControls() )
+  table.insert(controls, GetCruxTimerMenuControls() )
   return controls 
 end
 
 
 local function OnProfilChange() 
-
-
+  GoToSleep() 
+  CheckSkillLines()
 end
 
 
 local function ProfileDefaults() 
   return {
     showAlwaysInCombat = true, 
-    hideWhenNoCrux = true, 
+    hideWhenNoCrux = false, 
     symbolic = GetSymbolicTrackerSettingDefaults(),
     audioCue = GetAudioCueDefaults(), 
-    numeric = GetNumericTrackerSettingDefaults()
+    numeric = GetNumericTrackerSettingDefaults(),
+    timer = GetCruxTimerSettingsDefaults(),
   }
 end
 
@@ -916,7 +1261,7 @@ local function Initialize()
   ---[[ Saved Variables ]]
   local SavedVariablesParameter = {
     svName = "ExoYsCruxTrackerSavedVariables", 
-    version = 1, 
+    version = 2, 
     globalDefaults = { showDebug = false }, 
     profileDefaults = ProfileDefaults(), 
     dialogTitle = "ExoYs Crux Tracker", 
@@ -938,6 +1283,7 @@ local function Initialize()
 
   Gui.symbolic = InitializeSymbolicTracker() 
   Gui.numeric = InitializeNumericTracker() 
+  Gui.timer = InitializeCruxTimer()
   
   LibExoY.RegisterCombatStart( function() SetVisibility() end )
   LibExoY.RegisterCombatEnd( function() SetVisibility() end )
