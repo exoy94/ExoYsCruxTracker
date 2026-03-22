@@ -573,7 +573,7 @@ local function GetNumericTrackerMenuControls()
     name = ECT_SETTING_ENABLED, 
     getFunc = function() return SV.p.numeric.enabled end, 
     setFunc = function(bool) 
-      SV.p.nuemric.enabled = bool
+      SV.p.numeric.enabled = bool
       SetVisibility()
     end
   })
@@ -1171,7 +1171,7 @@ local function GoToSleep()
   Debug("There is no knowledge in the void (Going to sleep)")
   addonIsSleeping = true 
   SetVisibility()
-  CruxTracker:SetCruxAmount(0,0)
+  CruxTracker:SetCruxInfo(0,0)
   Update:Stop() 
   Update.callList = {} 
 end
