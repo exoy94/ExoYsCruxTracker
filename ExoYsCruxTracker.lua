@@ -17,7 +17,7 @@ local arcanistId = 117
 
 local idECT = "ExoYsCruxTracker"
 local nameECT = "|c00FF00ExoY|rs Crux Tracker"
-local versionECT = "2.0.0"
+local versionECT = "2.0.1"
 
 local cruxId = 184220
 local cruxDuration = GetAbilityDuration( cruxId )
@@ -1293,7 +1293,7 @@ local function Initialize()
     end )
   EM:RegisterForEvent(idECT.."SkillsUpdated", EVENT_SKILLS_FULL_UPDATE, CheckSkillLines)
 
-  EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, function(_, changeType, _, _, _, _, _, stackCount) 
+  EM:RegisterForEvent(idECT, EVENT_EFFECT_CHANGED, function(_, changeType, _, _, unitTag, _, _, stackCount) 
     if changeType == EFFECT_RESULT_FADED then 
       CruxTracker:SetCruxInfo( 0 ) -- crux consumed/expired
     else 
@@ -1302,6 +1302,7 @@ local function Initialize()
   end )
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_ABILITY_ID, cruxId)
   EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE, COMBAT_UNIT_TYPE_PLAYER)
+  EM:AddFilterForEvent(idECT, EVENT_EFFECT_CHANGED, REGISTER_FILTER_UNIT_TAG, "player")
 end
 
 
@@ -1321,7 +1322,5 @@ SLASH_COMMANDS["/ectdebug"] = function( )
 end
 
 SLASH_COMMANDS["/ect"] = function( )
-  d(CruxTracker)
-  d("---")
-  d(SV.p)
+
 end
