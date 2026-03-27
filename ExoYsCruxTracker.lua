@@ -65,7 +65,7 @@ function SetVisibility()
   if uiIsUnlocked then ShowGui( true ) return end 
   if addonIsSleeping then HideGui() return end 
   if CruxTracker.hasCrux then ShowGui() return end
-  if LibExoY.isInCombat and SV.p.showAlwaysInCombat then ShowGui() return end 
+  if LibExoY.IsInCombat() and SV.p.showAlwaysInCombat then ShowGui() return end 
   if not CruxTracker.hasCrux then 
     if SV.p.hideWhenNoCrux then 
       HideGui() 
