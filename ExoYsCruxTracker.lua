@@ -15,7 +15,7 @@ local arcanistId = 117
 
 local idECT = "ExoYsCruxTracker"
 local nameECT = "|c00FF00ExoY|rs Crux Tracker"
-local versionECT = "2.0.1"
+local versionECT = "2.1.0"
 
 local cruxId = 184220
 local cruxDuration = GetAbilityDuration( cruxId )
@@ -1246,8 +1246,6 @@ local function OnHeraldDmg(event, result, isError, abilityName, abilityGraphic, 
   end
   if not dmgResults[result] then return end -- it wasnt dmg 
 
-  d("herald dmg after early outs") ---@debug
-
   if Spattering.heraldSkillNames[abilityName] then 
     if Spattering.active and not Spattering.dmgCd then
       Spattering.dmgCd = true 
@@ -1260,14 +1258,13 @@ end
 
 
 local function OnSpatteringProc() 
-  d("spattering proc") ---@debug
   Spattering.endTime = GetGameTimeMilliseconds() + 7000 
   Spattering.active = true 
   Spattering.dmgCd = false
 end
 
 
-local function OnSpatteringUpdate() ---@debug
+local function OnSpatteringUpdate() 
     --if not Spattering.active then return end
     local time = GetGameTimeMilliseconds()  
 
