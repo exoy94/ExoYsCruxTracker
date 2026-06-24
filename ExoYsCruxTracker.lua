@@ -1,4 +1,5 @@
 --- @patch fixed display when multiple crux are created
+--- @patch fixed desync of crux display after loading screen
 
 --[[ --------------- ]]
 --[[ -- Variables -- ]]
@@ -39,6 +40,7 @@ local function HideGui( )
   Gui.symbolic.SetScenes( false ) 
   Gui.numeric.SetScenes( false ) 
   Gui.timer.SetScenes( false ) 
+  Gui.spattering.SetScenes( false ) 
 end 
 
 
@@ -47,6 +49,7 @@ local function ShowGui( showAll )
   Gui.symbolic.SetScenes( showAll or SV.p.symbolic.enabled ) 
   Gui.numeric.SetScenes( showAll or SV.p.numeric.enabled )
   Gui.timer.SetScenes( showAll or SV.p.timer.enabled)
+  Gui.spattering.SetScenes( showAll or SV.p.spattering.enabled )
 end
 
 
@@ -54,6 +57,7 @@ local function SetDemoMode( runDemo )
   Gui.symbolic.SetDemoMode( runDemo ) 
   Gui.numeric.SetDemoMode( runDemo ) 
   Gui.timer.SetDemoMode( runDemo ) 
+  Gui.spattering.SetDemoMode( runDemo ) 
 end
 
 
@@ -1045,6 +1049,424 @@ local function GetCruxTimerMenuControls()
 end
 
 
+--[[ ---------------------------- ]]
+--[[ -- Spattering Disjunction -- ]]
+--[[ ---------------------------- ]]
+
+local Spattering = {  
+  setId = 775, 
+  heraldSkillNames = {},
+  endTime = 0, 
+}
+
+local function GetSpatteringTrackerSettingsDefaults() 
+  return {
+    enabled = false, 
+    threshold = 5, --
+    posX = 700, 
+    posY = 500, 
+    font = 1, 
+    size = 24, 
+    displayZero = false, 
+    colorLong = {0,1,0,1}, 
+    design = {
+      iconEnabled = true, 
+      iconAlpha = 0.3, 
+      iconDesaturation = 0.5, 
+      backgroundAlpha = 0.2, 
+      coloredEdgeEnabled = false, 
+      coloredEdgeSize = 4,  
+    },
+  }
+end
+
+local function UpdateHeraldDmgList() 
+  Spattering.heraldSkillNames = {}
+  for i = 1,6 do 
+    local abilityId = GetSkillAbilityId(SKILL_TYPE_CLASS, 1, i) -- going through first skill tree of current class 
+    local abilityName = GetAbilityName(abilityId) 
+    Spattering.heraldSkillNames[abilityName] = true 
+  end
+end
+
+
+local function InitializeSpatteringTracker() 
+  local name = idECT.."Spattering" 
+
+  --- hardcoded dimensions 
+  local edgeLine = 2
+
+  local win = WM:CreateTopLevelWindow( name.."Window" )
+  win:ClearAnchors() 
+  win:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, SV.p.spattering.posX, SV.p.spattering.posY)
+  win:SetMouseEnabled(false) 
+  win:SetMovable(false)
+  win:SetClampedToScreen(true) 
+  win:SetDimensions( 50,50 )
+  win:SetHidden(true)  
+  win:SetHandler( "OnMoveStop", function() 
+    SV.p.spattering.posX = win:GetLeft() 
+    SV.p.spattering.posY = win:GetTop()
+  end)
+
+local frag = ZO_HUDFadeSceneFragment:New( win ) 
+local isShowing = false
+  local function SetScenes( showUi )
+    if isShowing == showUi then return end 
+    if showUi then 
+      HUD_UI_SCENE:AddFragment( frag )
+      HUD_SCENE:AddFragment( frag )
+    else 
+      HUD_UI_SCENE:RemoveFragment( frag )
+      HUD_SCENE:RemoveFragment( frag )
+    end
+    isShowing = showUi
+  end 
+
+  local ctrl = WM:CreateControl( name.."_Ctrl", win, CT_CONTROL)
+  ctrl:ClearAnchors() 
+  ctrl:SetAnchor(CENTER, win, CENTER, 0, 0) 
+
+  local coloredEdge = WM:CreateControl( name.."ColoredEdge", ctrl, CT_BACKDROP)
+  coloredEdge:ClearAnchors() 
+  coloredEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  coloredEdge:SetCenterColor(0,0,0,0)
+  
+  local outerEdge = WM:CreateControl( name.."OuterEdge", ctrl, CT_BACKDROP) 
+  outerEdge:ClearAnchors() 
+  outerEdge:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  outerEdge:SetCenterColor(0,0,0,0)
+  outerEdge:SetEdgeColor(0,0,0,1)
+
+  local back = WM:CreateControl( name.."_Back", ctrl, CT_BACKDROP)
+  back:ClearAnchors() 
+  back:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  back:SetCenterColor(0,0,0)
+  back:SetEdgeColor(0,0,0,1)
+  back:SetEdgeTexture(nil, edgeLine, edgeLine, backgedgeLineroundEdge) 
+  
+  local icon = WM:CreateControl( name.."_Icon", ctrl, CT_TEXTURE) 
+  icon:ClearAnchors()
+  icon:SetAnchor(CENTER, ctrl, CENTER, 0, 0)
+  icon:SetTexture( "esoui/art/icons/ability_u45_dun2_b1_ricochet.dds") 
+  icon:SetColor(1,1,1,0.2)
+  icon:SetDesaturation(0.5) 
+
+  local label = WM:CreateControl( name.."_Label", ctrl, CT_LABEL)   
+  label:ClearAnchors() 
+  label:SetAnchor(CENTER, ctrl, CENTER, 0, 0) 
+  label:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  label:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
+  label:SetScale(2)
+
+  --[[
+  local labelName = WM:CreateControl( name.."_Name", ctrl, CT_LABEL) 
+  labelName:ClearAnchors() 
+  labelName:SetAnchor(BOTTOM, ctrl, TOP, 0, 0) 
+  labelName:SetVerticalAlignment( TEXT_ALIGN_CENTER )
+  labelName:SetHorizontalAlignment( TEXT_ALIGN_CENTER )
+  labelName:SetFont(LibExoY.GetFont(10))
+  labelName:SetText("CruxTracker\nSpattering (Beta)")
+  labelName:SetDimensions
+  labelName:SetScale(1)
+  ]]
+
+  local function UpdateDesign()
+    --- size
+    local iconSize = 3.2*SV.p.spattering.size
+    local coloredEdgeSize = 2^SV.p.spattering.design.coloredEdgeSize
+    local edgeSize = SV.p.spattering.design.coloredEdgeEnabled and coloredEdgeSize or 0
+    local totalSize = iconSize + 2*edgeSize + 2*edgeLine
+    
+    win:SetDimensions( totalSize, totalSize )
+    outerEdge:SetDimensions( totalSize, totalSize )
+    coloredEdge:SetDimensions( totalSize, totalSize )
+    back:SetDimensions( 2*edgeLine+iconSize, 2*edgeLine+iconSize )
+    icon:SetDimensions(iconSize, iconSize) 
+    
+    --- label 
+    local fontData = {
+      font = LibExoY.GetFontList()[SV.p.spattering.font], 
+      size = SV.p.spattering.size, 
+      outline = 2, 
+    }
+    label:SetFont( LibExoY.GetFont(fontData) ) 
+    label:SetColor( unpack(SV.p.spattering.colorLong) )
+
+    --- background
+    back:SetHidden(not SV.p.spattering.design.iconEnabled)
+    back:SetAlpha( SV.p.spattering.design.backgroundAlpha ) 
+    
+    --- edge 
+    outerEdge:SetHidden( not SV.p.spattering.design.coloredEdgeEnabled)
+    coloredEdge:SetHidden( not SV.p.spattering.design.coloredEdgeEnabled)
+    coloredEdge:SetEdgeTexture(nil,coloredEdgeSize,coloredEdgeSize,coloredEdgeSize)
+
+    --- icon 
+    icon:SetHidden( not SV.p.spattering.design.iconEnabled )
+    icon:SetAlpha( SV.p.spattering.design.iconAlpha) 
+    icon:SetDesaturation( SV.p.spattering.design.iconDesaturation)
+  end 
+
+  --local function UpdateTime() 
+  --  local endTime = CruxTracker.endTime 
+  --  local timeRemaining = endTime - GetGameTimeSeconds() 
+  --  local str = SV.p.spattering.displayZero and "0s" or ""
+  --  if timeRemaining >= 0  then 
+  --    str = LibExoY.GetCountdownString( timeRemaining, true, false, true)
+  --  end
+  --  label:SetText(str) 
+  --end
+
+
+  local function SetDemoMode( demoMode ) 
+    win:SetMouseEnabled( demoMode ) 
+    win:SetMovable( demoMode )
+  end
+
+  UpdateDesign()
+  return {UpdateDesign = UpdateDesign, SetScenes = SetScenes, SetDemoMode = SetDemoMode, label = label}
+end
+
+
+local dmgResults = {
+      [ACTION_RESULT_DAMAGE] = true, 
+      [ACTION_RESULT_CRITICAL_DAMAGE] = true, 
+      [ACTION_RESULT_DOT_TICK] = true, 
+      [ACTION_RESULT_DOT_TICK_CRITICAL] = true, 
+    } 
+
+
+local function OnHeraldDmg(event, result, isError, abilityName, abilityGraphic, abilityActionSlotType, sourceName, sourceType, targetName, targetType, hitValue, powerType, damageType, log, sourceUnitId, targetUnitId, abilityId, overflow) 
+  local LSD = LibSetDetection -- as it is only beta for now, i dont want to incldue the dependency yet
+  if LSD then
+    if  LSD.IsSetActiveOnCurrentBar then 
+      if not LSD.IsSetActiveOnCurrentBar( Spattering.setId ) then return end -- set is not active  
+    end
+  end
+  if not dmgResults[result] then return end -- it wasnt dmg 
+
+  d("herald dmg after early outs") ---@debug
+
+  if Spattering.heraldSkillNames[abilityName] then 
+    if Spattering.active and not Spattering.dmgCd then
+      Spattering.dmgCd = true 
+      Spattering.dmgCdEnd = GetGameTimeMilliseconds() + 1000 
+      Spattering.endTime = Spattering.endTime - 500  
+    end
+  end
+end
+
+
+
+local function OnSpatteringProc() 
+  d("spattering proc") ---@debug
+  Spattering.endTime = GetGameTimeMilliseconds() + 7000 
+  Spattering.active = true 
+  Spattering.dmgCd = false
+end
+
+
+local function OnSpatteringUpdate() ---@debug
+    --if not Spattering.active then return end
+    local time = GetGameTimeMilliseconds()  
+
+    if Spattering.dmgCd and Spattering.dmgCdEnd < time then 
+      Spattering.dmgCd = false 
+    end 
+
+    local timeRemaining = math.floor((Spattering.endTime - time )/100) 
+    local displayTime = zo_max(timeRemaining/10, 0) 
+    local displayStr =  tostring(displayTime)
+    if displayTime == 0 and not SV.p.spattering.displayZero then displayStr = "" end
+
+    --Gui.spattering.label:SetText( SV.p.spattering.displayZero and tostring(zo_max(timeRemaining, 0) ) or "")
+    Gui.spattering.label:SetText( displayStr ) 
+
+    if Spattering.endTime < time then 
+      Spattering.active = false 
+    end
+end
+
+local function StartTrackingSpattering() 
+  UpdateHeraldDmgList()
+  EM:RegisterForEvent("CruxTracker_HoTSkills", EVENT_SKILLS_FULL_UPDATE, UpdateHeraldDmgList) 
+  EM:RegisterForEvent("CruxTracker_Spattering", EVENT_COMBAT_EVENT, OnSpatteringProc) 
+  EM:AddFilterForEvent("CruxTracker_Spattering", EVENT_COMBAT_EVENT, REGISTER_FILTER_ABILITY_ID, 227565) 
+  EM:AddFilterForEvent("CruxTracker_Spattering", EVENT_COMBAT_EVENT, REGISTER_FILTER_SOURCE_COMBAT_UNIT_TYPE , COMBAT_UNIT_TYPE_PLAYER) 
+  EM:RegisterForEvent("CruxTracker_HoTDmg", EVENT_COMBAT_EVENT, OnHeraldDmg) 
+  Update:AddToList( "Spattering", OnSpatteringUpdate) 
+end
+
+local function StopTrackingSpattering() 
+  EM:UnregisterForEvent("CruxTracker_HoTSkills", EVENT_SKILLS_FULL_UPDATE)
+  EM:UnregisterForEvent("CruxTracker_Spattering", EVENT_COMBAT_EVENT) 
+  EM:UnregisterForEvent("CruxTracker_HotDmg", EVENT_COMBAT_EVENT)
+  Update:RemoveFromList("Spattering") 
+end
+
+
+local function GetSpatteringTrackerMenuControls() 
+  local controls = {}
+  table.insert(controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.spattering.enabled end, 
+    setFunc = function(bool) 
+      SV.p.spattering.enabled = bool 
+      SetVisibility() 
+    end, 
+  }) 
+
+  table.insert( controls, {
+    type = "header", 
+    name = ECT_SETTING_INDICATOR, 
+    width = "full", 
+  })
+  table.insert( controls, {
+    type = "dropdown", 
+    name = ECT_SETTING_FONT, 
+    choices = LibExoY.GetFontList(), 
+    getFunc = function() return LibExoY.GetFontList()[SV.p.spattering.font] end, 
+    setFunc = function( selection ) 
+      for idx, font in ipairs(LibExoY.GetFontList() ) do 
+        if selection == font then 
+          SV.p.spattering.font = idx
+          break 
+        end
+      end
+      Gui.spattering.UpdateDesign() 
+    end,
+  })
+  table.insert( controls, {
+    type = "slider", 
+    name = ECT_SETTING_SIZE, 
+    min = 10, 
+    max = 80, 
+    step = 2, 
+    getFunc = function() return SV.p.spattering.size end, 
+    setFunc = function( size ) 
+      SV.p.spattering.size = size 
+      Gui.spattering.UpdateDesign() 
+    end
+  })
+  table.insert( controls, {
+    type = "checkbox", 
+    name = ECT_SETTING_DISPLAY_ZERO, 
+    getFunc = function() return SV.p.spattering.displayZero end,
+    setFunc = function(bool) 
+      SV.p.spattering.displayZero = bool 
+    end,
+    })
+    table.insert( controls, {
+      type = "colorpicker", 
+      name = ECT_SETTING_COLOR, 
+      getFunc = function() return unpack(SV.p.spattering.colorLong) end, 
+      setFunc = function(r,g,b,a)
+        SV.p.spattering.colorLong = {r,g,b,a} 
+      end, 
+    })
+
+  local advancedDesignControls = {} 
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_ICON, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.spattering.design.iconEnabled end, 
+    setFunc = function(bool)
+      SV.p.spattering.design.iconEnabled = bool
+      Gui.spattering.UpdateDesign()
+    end, 
+    width = "half"
+  })
+
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_BACK_ALPHA, 
+    getFunc = function() return SV.p.spattering.design.backgroundAlpha end, 
+    setFunc = function(value) 
+      SV.p.spattering.design.backgroundAlpha = value
+      Gui.spattering.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_DESA, 
+    getFunc = function() return SV.p.spattering.design.iconDesaturation end, 
+    setFunc = function(value) 
+      SV.p.spattering.design.iconDesaturation = value
+      Gui.spattering.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 0, 
+    max = 1, 
+    step = 0.1, 
+    name = ECT_SETTING_ICON_ALPHA, 
+    getFunc = function() return SV.p.spattering.design.iconAlpha end, 
+    setFunc = function(value) 
+      SV.p.spattering.design.iconAlpha = value
+      Gui.spattering.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+  --[[
+  table.insert(advancedDesignControls, {
+    type = "header", 
+    name = ECT_SETTING_COLORED_EDGE, 
+  })
+  table.insert(advancedDesignControls, {
+    type = "checkbox", 
+    name = ECT_SETTING_ENABLED, 
+    getFunc = function() return SV.p.timer.design.coloredEdgeEnabled end, 
+    setFunc = function(bool)
+      SV.p.timer.design.coloredEdgeEnabled = bool
+      Gui.timer.UpdateDesign()
+    end,
+    width = "half", 
+  })
+  table.insert(advancedDesignControls, { 
+    type = "slider", 
+    min = 1, 
+    max = 4, 
+    step = 1, 
+    name = ECT_SETTING_SIZE, 
+    getFunc = function() return SV.p.timer.design.coloredEdgeSize end, 
+    setFunc = function(value) 
+      SV.p.timer.design.coloredEdgeSize = value
+      Gui.timer.UpdateDesign() 
+    end,
+    width = "half", 
+  })
+    ]]
+
+  table.insert(controls, {
+    type = "submenu", 
+    name = ECT_SETTING_ADVANCED_DESIGN, 
+    controls = advancedDesignControls,
+  })
+
+  return {
+    type = "submenu", 
+    name = LibExoY.AddIconToString("Spattering Disjunction", "esoui/art/icons/ability_u45_dun2_b1_ricochet.dds", 36, "front"),
+    controls = controls
+  }
+end
+
+
+
 --[[ ------------------ ]]
 --[[ -- Crux Tracker -- ]]
 --[[ ------------------ ]]
@@ -1233,6 +1655,13 @@ local function GetMenuControls()
   table.insert(controls, GetSymbolicTrackerMenuControls() ) 
   table.insert(controls, GetAudioCueMenuControls() )
   table.insert(controls, GetCruxTimerMenuControls() )
+  
+  local cruxCreatorSubmenu = {}
+  table.insert(cruxCreatorSubmenu, GetSpatteringTrackerMenuControls() )
+  table.insert(controls, {type = "submenu", name = "CruxCreators (Beta)", controls = cruxCreatorSubmenu}
+
+  )
+
   return controls 
 end
 
@@ -1251,6 +1680,7 @@ local function ProfileDefaults()
     audioCue = GetAudioCueDefaults(), 
     numeric = GetNumericTrackerSettingDefaults(),
     timer = GetCruxTimerSettingsDefaults(),
+    spattering = GetSpatteringTrackerSettingsDefaults(),
   }
 end
 
@@ -1283,12 +1713,20 @@ local function Initialize()
   Gui.symbolic = InitializeSymbolicTracker() 
   Gui.numeric = InitializeNumericTracker() 
   Gui.timer = InitializeCruxTimer()
+  Gui.spattering = InitializeSpatteringTracker()
+
+  if SV.p.spattering.enabled then 
+    StartTrackingSpattering()
+  end
   
   LibExoY.RegisterCombatStart( function() SetVisibility() end )
   LibExoY.RegisterCombatEnd( function() SetVisibility() end )
   EM:RegisterForEvent(idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED, function() 
       CheckSkillLines() 
       EM:UnregisterForEvent( idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED )
+      EM:RegisterForEvent( idECT.."PlayerActivated", EVENT_PLAYER_ACTIVATED , function() 
+        CruxTracker:ReadCharacterInfo() -- ensure sync when crux fade while in loading screen
+      end)
     end )
   EM:RegisterForEvent(idECT.."SkillsUpdated", EVENT_SKILLS_FULL_UPDATE, CheckSkillLines)
 
@@ -1321,4 +1759,5 @@ SLASH_COMMANDS["/ectdebug"] = function( )
 end
 
 SLASH_COMMANDS["/ect"] = function( )
+  exoytestvar = Gui.spattering  ---@debug
 end
