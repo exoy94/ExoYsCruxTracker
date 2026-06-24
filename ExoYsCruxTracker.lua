@@ -1,7 +1,4 @@
---CruxTracker = CruxTracker or {}
-
---local ECT = CruxTracker
---local Lib = LibExoYsUtilities
+--- @patch fixed display when multiple crux are created
 
 --[[ --------------- ]]
 --[[ -- Variables -- ]]
@@ -321,7 +318,9 @@ local function InitializeSymbolicTracker()
         symbols[i].Deactivate()
       end
     else 
-      symbols[crux].Activate()
+      for i = 1,crux do 
+        symbols[i].Activate()
+      end
     end
 
   end
@@ -1322,5 +1321,4 @@ SLASH_COMMANDS["/ectdebug"] = function( )
 end
 
 SLASH_COMMANDS["/ect"] = function( )
-
 end
