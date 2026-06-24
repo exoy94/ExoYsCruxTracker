@@ -1,5 +1,4 @@
---- @patch fixed display when multiple crux are created
---- @patch fixed desync of crux display after loading screen
+
 
 --[[ --------------- ]]
 --[[ -- Variables -- ]]
