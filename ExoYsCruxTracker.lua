@@ -14,7 +14,7 @@ local arcanistId = 117
 
 local idECT = "ExoYsCruxTracker"
 local nameECT = "|c00FF00ExoY|rs Crux Tracker"
-local versionECT = "2.2.0"
+local versionECT = "2.3.0"
 
 local cruxId = 184220
 local cruxDuration = GetAbilityDuration( cruxId )
@@ -1936,19 +1936,6 @@ end
 
 local function GetMenuControls() 
   local controls = {}
-  table.insert(controls, {
-    type = "checkbox", 
-    name = ECT_SETTING_UNLOCK_UI,
-    getFunc = function() return uiIsUnlocked end, 
-    setFunc = function(bool) 
-      uiIsUnlocked = bool 
-      SetDemoMode( bool )
-      SetVisibility()
-    end, 
-  })
-  table.insert( controls, {
-    type = "divider"
-  })
   -- Visibility 
   table.insert( controls, {
     type = "checkbox", 
@@ -1980,7 +1967,6 @@ local function GetMenuControls()
   table.insert(controls, {type = "submenu", name = "CruxCreators (Beta)", controls = cruxCreatorSubmenu}
 
   )
-
   return controls 
 end
 
@@ -2007,28 +1993,32 @@ end
 
 local function Initialize()
 
-  ---[[ Saved Variables ]]
-  local SavedVariablesParameter = {
-    svName = "ExoYsCruxTrackerSavedVariables", 
-    version = 2, 
-    globalDefaults = { showDebug = false }, 
+  ---[[ Addon Settings ]]
+  local AddonSettingsParameter = {
+    name = idECT, 
+    displayName = nameECT, 
+    savedVarName = "ExoYsCruxTrackerSavedVariables", 
+    storeVersion = 2, 
+    globalDefaults = {showDebug = false}, 
     profileDefaults = ProfileDefaults(), 
-    dialogTitle = "ExoYs Crux Tracker", 
-    callbacks = { OnProfileChange }, 
+    OnProfileChange = OnProfileChange, 
+    addonVersion = versionECT, 
+    globalSettingsControls = {
+      type = "checkbox", 
+      name = ECT_SETTING_UNLOCK_UI,
+      getFunc = function() return uiIsUnlocked end, 
+      setFunc = function(bool) 
+        uiIsUnlocked = bool 
+        SetDemoMode( bool )
+        SetVisibility()
+      end, 
+    }, 
+    profileSettingsControls = GetMenuControls(), 
+    esoui = "info3619-ExoYsCruxTracker.html",
   }
-  local profileMenu = nil
-  SV, GetProfileSubmenu = LibExoY.LoadSavedVariables( SavedVariablesParameter )   
 
-  ---[[ Addon Menu ]]
-  local SettingsMenuParameter = {
-      name = idECT,
-      displayName = nameECT,
-      version = versionECT,
-      esoui = "info3619-ExoYsCruxTracker.html",
-      profiles = GetProfileSubmenu(), 
-      controls = GetMenuControls(),  
-  } 
-  LibExoY.CreateSettingsMenu( SettingsMenuParameter ) 
+  SV = LibExoY.InitializeAddonSettings( AddonSettingsParameter )
+
 
   Gui.symbolic = InitializeSymbolicTracker() 
   Gui.numeric = InitializeNumericTracker() 
