@@ -27,7 +27,7 @@ local uiIsUnlocked = false
 local addonIsSleeping = true 
 
 local function Debug(str) 
-  LibExoY.Debug(str, {"ECT", "green"}, SV.g.showDebug)  
+  LibExoY.Print(str, {"ECT", "green"}, SV.g.showDebug)  
 end
 
 --[[ ---------------- ]]
@@ -2072,7 +2072,7 @@ EM:RegisterForEvent(idECT, EVENT_ADD_ON_LOADED, OnAddonLoaded)
 SLASH_COMMANDS["/ectdebug"] = function( )
   SV.g.showDebug = not SV.g.showDebug
   local debugStr = zo_strformat("Debug > <<1>>ctivated < ", SV.g.showDebug and "A" or "De-a" ) 
-  LibExoY.Debug(debugStr, {"ECT", "green"}) 
+  LibExoY.Print(debugStr, {"ECT", "green"}) 
 end
 
 SLASH_COMMANDS["/ect"] = function( )
